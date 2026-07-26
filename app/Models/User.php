@@ -48,4 +48,14 @@ class User extends Authenticatable
     {
         return $this->hasOne(Officer::class);
     }
+
+    public function isActive(): bool
+    {
+        return $this->status === 'active';
+    }
+
+    public function hasRole(string $role): bool
+    {
+        return $this->role?->name === $role;
+    }
 }
