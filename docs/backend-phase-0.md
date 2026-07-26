@@ -82,12 +82,14 @@ php artisan --version
 php artisan test
 ```
 
-## Catatan untuk Phase 1
+## Catatan Phase 1
 
-Phase berikutnya adalah fondasi database dan role:
+Phase 1 adalah fondasi database dan role:
 
 - Migration `roles`.
 - Update `users` dengan `role_id`, `phone`, `status`, dan `last_login_at`.
 - Migration `officers`.
 - Seeder role Admin, Petugas Distribusi, Kepala SPPG.
 - Seeder akun demo awal.
+
+Status Phase 1 akan dicatat setelah migration, seeder, dan test berhasil dijalankan.
