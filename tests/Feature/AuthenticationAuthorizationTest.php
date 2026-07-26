@@ -42,6 +42,66 @@ class AuthenticationAuthorizationTest extends TestCase
             ->assertRedirect(route('admin.dashboard'));
     }
 
+    public function test_distribution_officer_can_login_and_is_redirected_to_officer_dashboard(): void
+    {
+        $role = Role::factory()->create(['name' => 'petugas']);
+        $user = User::factory()->create([
+            'role_id' => $role->id,
+            'email' => 'petugas@example.test',
+            'status' => 'active',
+            'password' => Hash::make('password'),
+        ]);
+
+        $this->post(route('login.store'), [
+            'email' => 'petugas@example.test',
+            'password' => 'password',
+        ])->assertRedirect(route('dashboard'));
+
+        $this->assertAuthenticatedAs($user);
+
+        $this->get(route('dashboard'))
+            ->assertRedirect(route('officer.dashboard'));
+    }
+
+    public function test_sppg_head_can_login_and_is_redirected_to_head_dashboard(): void
+    {
+        $role = Role::factory()->create(['name' => 'kepala_sppg']);
+        $user = User::factory()->create([
+            'role_id' => $role->id,
+            'email' => 'kepala@example.test',
+            'status' => 'active',
+            'password' => Hash::make('password'),
+        ]);
+
+        $this->post(route('login.store'), [
+            'email' => 'kepala@example.test',
+            'password' => 'password',
+        ])->assertRedirect(route('dashboard'));
+
+        $this->assertAuthenticatedAs($user);
+
+        $this->get(route('dashboard'))
+            ->assertRedirect(route('head.dashboard'));
+    }
+
+    public function test_user_cannot_login_with_wrong_password(): void
+    {
+        $role = Role::factory()->create(['name' => 'admin']);
+        User::factory()->create([
+            'role_id' => $role->id,
+            'email' => 'wrong-password@example.test',
+            'status' => 'active',
+            'password' => Hash::make('password'),
+        ]);
+
+        $this->post(route('login.store'), [
+            'email' => 'wrong-password@example.test',
+            'password' => 'invalid-password',
+        ])->assertSessionHasErrors('email');
+
+        $this->assertGuest();
+    }
+
     public function test_inactive_user_cannot_login(): void
     {
         $role = Role::factory()->create(['name' => 'admin']);
