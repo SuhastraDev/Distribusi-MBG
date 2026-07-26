@@ -26,7 +26,7 @@ Rekomendasi:
 
 ## Konfigurasi database
 
-Default `.env.example`:
+Default `.env.example` untuk Laragon/XAMPP:
 
 ```env
 DB_CONNECTION=mysql
@@ -35,6 +35,17 @@ DB_PORT=3306
 DB_DATABASE=distribusi_mbg
 DB_USERNAME=root
 DB_PASSWORD=
+```
+
+Jika memakai Docker Compose, gunakan `.env.docker.example`:
+
+```env
+DB_CONNECTION=mysql
+DB_HOST=127.0.0.1
+DB_PORT=3307
+DB_DATABASE=distribusi_mbg
+DB_USERNAME=distribusi_mbg
+DB_PASSWORD=distribusi_mbg
 ```
 
 Buat database lokal:
@@ -51,6 +62,15 @@ Copy-Item .env.example .env
 php artisan key:generate
 php artisan migrate
 php artisan serve
+```
+
+Atau jalankan MySQL dengan Docker:
+
+```powershell
+docker compose up -d mysql
+Copy-Item .env.docker.example .env
+php artisan key:generate
+php artisan migrate
 ```
 
 ## Verifikasi Phase 0

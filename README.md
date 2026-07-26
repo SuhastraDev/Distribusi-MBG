@@ -26,6 +26,13 @@ Detail Phase 0 ada di [docs/backend-phase-0.md](docs/backend-phase-0.md).
 
 ## Setup lokal
 
+Pilih salah satu opsi database:
+
+- Laragon/XAMPP MySQL di port `3306`.
+- Docker Compose MySQL di port host `3307`.
+
+Panduan lengkap ada di [docs/mysql-setup.md](docs/mysql-setup.md).
+
 ```bash
 composer install
 cp .env.example .env
