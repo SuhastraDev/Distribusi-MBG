@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 #[Fillable(['location_id', 'code', 'name', 'portion_count', 'notes', 'status'])]
 class Recipient extends Model
@@ -46,5 +47,13 @@ class Recipient extends Model
     public function isActive(): bool
     {
         return $this->status === 'active' && $this->location?->status === 'active';
+    }
+
+    /**
+     * @return HasMany<DistributionScheduleDestination, $this>
+     */
+    public function scheduleDestinations(): HasMany
+    {
+        return $this->hasMany(DistributionScheduleDestination::class);
     }
 }

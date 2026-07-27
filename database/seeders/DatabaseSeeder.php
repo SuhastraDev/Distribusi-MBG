@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Models\DistributionSchedule;
 use App\Models\Location;
 use App\Models\Officer;
 use App\Models\Recipient;
@@ -170,5 +171,36 @@ class DatabaseSeeder extends Seeder
                 ]
             );
         }
+
+        $officer = Officer::query()->where('officer_code', 'PTG-0001')->firstOrFail();
+        $depot = Location::query()->where('code', 'DEPOT-SPPG-TT2')->firstOrFail();
+        $demoRecipients = Recipient::query()
+            ->whereIn('code', ['RCV-SCH-0001', 'RCV-SCH-0002'])
+            ->with('location')
+            ->get();
+
+        $schedule = DistributionSchedule::query()->updateOrCreate(
+            ['code' => 'SCHD-DEMO-001'],
+            [
+                'scheduled_date' => now()->toDateString(),
+                'officer_id' => $officer->id,
+                'depot_location_id' => $depot->id,
+                'status' => 'scheduled',
+                'notes' => 'Jadwal demo awal untuk perencanaan distribusi MBG.',
+            ]
+        );
+
+        $schedule->destinations()->delete();
+
+        foreach ($demoRecipients->values() as $index => $recipient) {
+            $schedule->destinations()->create([
+                'location_id' => $recipient->location_id,
+                'recipient_id' => $recipient->id,
+                'portion_count' => $recipient->portion_count,
+                'sequence_order' => $index + 1,
+            ]);
+        }
+
+        $schedule->recalculateTotalPortions();
     }
 }

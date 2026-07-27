@@ -3,6 +3,7 @@
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Auth\PasswordController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\DistributionScheduleController;
 use App\Http\Controllers\LocationController;
 use App\Http\Controllers\OfficerController;
 use App\Http\Controllers\RecipientController;
@@ -53,4 +54,15 @@ Route::middleware('auth')->group(function (): void {
 
     Route::resource('recipients', RecipientController::class)
         ->middleware('role:admin');
+
+    Route::resource('distribution-schedules', DistributionScheduleController::class)
+        ->middleware('role:admin');
+
+    Route::post('/distribution-schedules/{distribution_schedule}/destinations', [DistributionScheduleController::class, 'storeDestination'])
+        ->middleware('role:admin')
+        ->name('distribution-schedules.destinations.store');
+
+    Route::delete('/distribution-schedules/{distribution_schedule}/destinations/{destination}', [DistributionScheduleController::class, 'destroyDestination'])
+        ->middleware('role:admin')
+        ->name('distribution-schedules.destinations.destroy');
 });

@@ -48,6 +48,22 @@ class Location extends Model
         return $this->hasMany(Recipient::class);
     }
 
+    /**
+     * @return HasMany<DistributionSchedule, $this>
+     */
+    public function depotSchedules(): HasMany
+    {
+        return $this->hasMany(DistributionSchedule::class, 'depot_location_id');
+    }
+
+    /**
+     * @return HasMany<DistributionScheduleDestination, $this>
+     */
+    public function scheduleDestinations(): HasMany
+    {
+        return $this->hasMany(DistributionScheduleDestination::class);
+    }
+
     public function typeLabel(): string
     {
         return match ($this->type) {

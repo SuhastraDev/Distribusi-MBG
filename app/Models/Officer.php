@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 #[Fillable(['user_id', 'officer_code', 'name', 'phone', 'address', 'status'])]
 class Officer extends Model
@@ -36,5 +37,13 @@ class Officer extends Model
     public function isActive(): bool
     {
         return $this->status === 'active' && $this->user?->status === 'active';
+    }
+
+    /**
+     * @return HasMany<DistributionSchedule, $this>
+     */
+    public function distributionSchedules(): HasMany
+    {
+        return $this->hasMany(DistributionSchedule::class);
     }
 }
