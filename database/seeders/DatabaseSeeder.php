@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Models\Location;
 use App\Models\Officer;
 use App\Models\Role;
 use App\Models\User;
@@ -76,5 +77,71 @@ class DatabaseSeeder extends Seeder
                 'status' => 'active',
             ]
         );
+
+        $locations = [
+            [
+                'code' => 'DEPOT-SPPG-TT2',
+                'name' => 'Depot SPPG Tangga Takat 2',
+                'type' => 'depot',
+                'address' => 'Tangga Takat, Seberang Ulu II, Palembang',
+                'latitude' => -3.0251500,
+                'longitude' => 104.7792500,
+            ],
+            [
+                'code' => 'SCH-0001',
+                'name' => 'SD Negeri 85 Palembang',
+                'type' => 'school',
+                'address' => 'Jl. KH Azhari, 7 Ulu, Palembang',
+                'latitude' => -2.9959800,
+                'longitude' => 104.7647700,
+            ],
+            [
+                'code' => 'SCH-0002',
+                'name' => 'SMP Negeri 16 Palembang',
+                'type' => 'school',
+                'address' => 'Jl. A. Yani, Seberang Ulu II, Palembang',
+                'latitude' => -3.0144100,
+                'longitude' => 104.7599300,
+            ],
+            [
+                'code' => 'SCH-0003',
+                'name' => 'SD Negeri 95 Palembang',
+                'type' => 'school',
+                'address' => 'Plaju, Palembang',
+                'latitude' => -3.0066800,
+                'longitude' => 104.7942600,
+            ],
+            [
+                'code' => 'SCH-0004',
+                'name' => 'SMP Negeri 30 Palembang',
+                'type' => 'school',
+                'address' => 'Kertapati, Palembang',
+                'latitude' => -3.0358100,
+                'longitude' => 104.7451900,
+            ],
+            [
+                'code' => 'SCH-0005',
+                'name' => 'SD Negeri 70 Palembang',
+                'type' => 'school',
+                'address' => 'Jakabaring, Palembang',
+                'latitude' => -3.0216200,
+                'longitude' => 104.7890400,
+            ],
+            [
+                'code' => 'SCH-0006',
+                'name' => 'SMP Negeri 7 Palembang',
+                'type' => 'school',
+                'address' => 'Seberang Ulu I, Palembang',
+                'latitude' => -2.9849300,
+                'longitude' => 104.7656300,
+            ],
+        ];
+
+        foreach ($locations as $location) {
+            Location::query()->updateOrCreate(
+                ['code' => $location['code']],
+                array_merge($location, ['status' => 'active'])
+            );
+        }
     }
 }
