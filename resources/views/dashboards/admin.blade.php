@@ -6,5 +6,6 @@
     <p><a href="{{ route('recipients.index') }}">Kelola Penerima MBG</a></p>
     <p><a href="{{ route('distribution-schedules.index') }}">Kelola Jadwal Distribusi</a></p>
     <p><a href="{{ route('distribution-runs.index') }}">Monitoring Distribusi Aktual</a></p>
+    <p><a href="{{ route('route-plans.index') }}">Rute Greedy Distribusi</a></p>
     <p><a href="{{ route('password.edit') }}">Ubah password</a></p>
 </x-layouts.app>

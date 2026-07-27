@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 #[Fillable([
     'distribution_run_id',
@@ -70,5 +71,13 @@ class DistributionRunDestination extends Model
     public function recipient(): BelongsTo
     {
         return $this->belongsTo(Recipient::class);
+    }
+
+    /**
+     * @return HasOne<RoutePlanStep, $this>
+     */
+    public function routePlanStep(): HasOne
+    {
+        return $this->hasOne(RoutePlanStep::class);
     }
 }

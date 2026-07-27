@@ -9,6 +9,7 @@ use App\Models\Officer;
 use App\Models\Recipient;
 use App\Models\Role;
 use App\Models\User;
+use App\Services\GreedyRouteService;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
@@ -226,5 +227,7 @@ class DatabaseSeeder extends Seeder
                 'status' => 'pending',
             ]);
         }
+
+        app(GreedyRouteService::class)->generate($run);
     }
 }

@@ -13,7 +13,16 @@
 
     <p><a href="{{ route('distribution-runs.index') }}">Kembali</a></p>
 
+    @if ($distributionRun->routePlan)
+        <p><a href="{{ route('route-plans.show', $distributionRun->routePlan) }}">Lihat Rute Greedy</a></p>
+    @endif
+
     @if (in_array(auth()->user()->role->name, ['admin', 'petugas'], true))
+        <form method="POST" action="{{ route('distribution-runs.route-plan.generate', $distributionRun) }}">
+            @csrf
+            <button type="submit">{{ $distributionRun->routePlan ? 'Generate Ulang Rute Greedy' : 'Generate Rute Greedy' }}</button>
+        </form>
+
         @if ($distributionRun->status === 'ready')
             <form method="POST" action="{{ route('distribution-runs.start', $distributionRun) }}">
                 @csrf

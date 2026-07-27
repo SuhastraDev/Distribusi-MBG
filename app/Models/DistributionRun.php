@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 #[Fillable(['code', 'distribution_schedule_id', 'officer_id', 'status', 'started_at', 'completed_at', 'notes'])]
 class DistributionRun extends Model
@@ -48,6 +49,14 @@ class DistributionRun extends Model
     public function destinations(): HasMany
     {
         return $this->hasMany(DistributionRunDestination::class);
+    }
+
+    /**
+     * @return HasOne<RoutePlan, $this>
+     */
+    public function routePlan(): HasOne
+    {
+        return $this->hasOne(RoutePlan::class);
     }
 
     public function canBeStarted(): bool

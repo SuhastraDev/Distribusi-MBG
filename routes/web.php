@@ -8,6 +8,7 @@ use App\Http\Controllers\DistributionScheduleController;
 use App\Http\Controllers\LocationController;
 use App\Http\Controllers\OfficerController;
 use App\Http\Controllers\RecipientController;
+use App\Http\Controllers\RoutePlanController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -86,4 +87,12 @@ Route::middleware('auth')->group(function (): void {
     Route::put('/distribution-runs/{distribution_run}/destinations/{destination}', [DistributionRunController::class, 'updateDestination'])
         ->middleware('role:admin,petugas')
         ->name('distribution-runs.destinations.update');
+
+    Route::resource('route-plans', RoutePlanController::class)
+        ->only(['index', 'show'])
+        ->middleware('role:admin,petugas,kepala_sppg');
+
+    Route::post('/distribution-runs/{distribution_run}/route-plan', [RoutePlanController::class, 'generate'])
+        ->middleware('role:admin,petugas')
+        ->name('distribution-runs.route-plan.generate');
 });
