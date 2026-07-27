@@ -87,8 +87,30 @@ class RoutePlanManagementTest extends TestCase
             ->get(route('route-plans.show', $routePlan))
             ->assertOk()
             ->assertSee('Detail Rute Greedy')
+            ->assertSee('route-map')
+            ->assertSee('tile.openstreetmap.org')
+            ->assertSee(route('route-plans.map-data', $routePlan))
             ->assertSee('Sekolah Terdekat')
             ->assertSee('Sekolah Terjauh');
+    }
+
+    public function test_route_plan_map_data_returns_coordinates_and_route_metadata(): void
+    {
+        $admin = $this->createUserWithRole('admin');
+        $routePlan = app(GreedyRouteService::class)->generate($this->createRunWithDeterministicCoordinates());
+
+        $this->actingAs($admin)
+            ->get(route('route-plans.map-data', $routePlan))
+            ->assertOk()
+            ->assertJsonPath('route.code', $routePlan->code)
+            ->assertJsonPath('route.algorithm', 'greedy_nearest_neighbor')
+            ->assertJsonPath('distribution.code', $routePlan->run->code)
+            ->assertJsonPath('center.latitude', 0)
+            ->assertJsonPath('center.longitude', 0)
+            ->assertJsonPath('steps.0.type', 'start')
+            ->assertJsonPath('steps.0.location.name', 'Depot Test')
+            ->assertJsonPath('steps.1.location.name', 'Sekolah Terdekat')
+            ->assertJsonCount(3, 'steps');
     }
 
     public function test_officer_can_only_generate_route_for_own_distribution_run(): void

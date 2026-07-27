@@ -92,6 +92,10 @@ Route::middleware('auth')->group(function (): void {
         ->only(['index', 'show'])
         ->middleware('role:admin,petugas,kepala_sppg');
 
+    Route::get('/route-plans/{route_plan}/map-data', [RoutePlanController::class, 'mapData'])
+        ->middleware('role:admin,petugas,kepala_sppg')
+        ->name('route-plans.map-data');
+
     Route::post('/distribution-runs/{distribution_run}/route-plan', [RoutePlanController::class, 'generate'])
         ->middleware('role:admin,petugas')
         ->name('distribution-runs.route-plan.generate');
