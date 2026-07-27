@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\FrontendDataController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Auth\PasswordController;
 use App\Http\Controllers\DashboardController;
@@ -117,4 +118,25 @@ Route::middleware('auth')->group(function (): void {
     Route::get('/reports/distributions/export', [DistributionReportController::class, 'export'])
         ->middleware('role:admin,kepala_sppg')
         ->name('reports.distributions.export');
+
+    Route::prefix('api/frontend')
+        ->middleware('role:admin,petugas,kepala_sppg')
+        ->name('api.frontend.')
+        ->group(function (): void {
+            Route::get('/dashboard-summary', [FrontendDataController::class, 'dashboardSummary'])
+                ->name('dashboard-summary');
+
+            Route::get('/distribution-runs', [FrontendDataController::class, 'distributionRuns'])
+                ->name('distribution-runs.index');
+
+            Route::get('/distribution-runs/{distribution_run}', [FrontendDataController::class, 'distributionRunDetail'])
+                ->name('distribution-runs.show');
+
+            Route::get('/route-plans/{route_plan}/map', [FrontendDataController::class, 'routeMap'])
+                ->name('route-plans.map');
+
+            Route::get('/reports/distributions/summary', [FrontendDataController::class, 'reportSummary'])
+                ->middleware('role:admin,kepala_sppg')
+                ->name('reports.distributions.summary');
+        });
 });
