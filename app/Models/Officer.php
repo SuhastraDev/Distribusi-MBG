@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Database\Factories\OfficerFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -20,5 +21,20 @@ class Officer extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    /**
+     * @param  Builder<Officer>  $query
+     * @return Builder<Officer>
+     */
+    public function scopeActive(Builder $query): Builder
+    {
+        return $query->where('status', 'active')
+            ->whereHas('user', fn (Builder $userQuery): Builder => $userQuery->where('status', 'active'));
+    }
+
+    public function isActive(): bool
+    {
+        return $this->status === 'active' && $this->user?->status === 'active';
     }
 }

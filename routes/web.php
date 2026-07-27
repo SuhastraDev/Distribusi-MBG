@@ -3,6 +3,7 @@
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Auth\PasswordController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\OfficerController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -41,4 +42,7 @@ Route::middleware('auth')->group(function (): void {
 
     Route::put('/change-password', [PasswordController::class, 'update'])
         ->name('password.update');
+
+    Route::resource('officers', OfficerController::class)
+        ->middleware('role:admin');
 });
