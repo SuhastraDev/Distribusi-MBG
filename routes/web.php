@@ -3,6 +3,7 @@
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Auth\PasswordController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\DistributionReportController;
 use App\Http\Controllers\DistributionRunController;
 use App\Http\Controllers\DistributionScheduleController;
 use App\Http\Controllers\LocationController;
@@ -108,4 +109,12 @@ Route::middleware('auth')->group(function (): void {
     Route::post('/distribution-runs/{distribution_run}/route-plan', [RoutePlanController::class, 'generate'])
         ->middleware('role:admin,petugas')
         ->name('distribution-runs.route-plan.generate');
+
+    Route::get('/reports/distributions', [DistributionReportController::class, 'index'])
+        ->middleware('role:admin,kepala_sppg')
+        ->name('reports.distributions.index');
+
+    Route::get('/reports/distributions/export', [DistributionReportController::class, 'export'])
+        ->middleware('role:admin,kepala_sppg')
+        ->name('reports.distributions.export');
 });
