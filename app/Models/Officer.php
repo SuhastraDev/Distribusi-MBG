@@ -46,4 +46,12 @@ class Officer extends Model
     {
         return $this->hasMany(DistributionSchedule::class);
     }
+
+    /**
+     * @return HasMany<DistributionRun, $this>
+     */
+    public function distributionRuns(): HasMany
+    {
+        return $this->hasMany(DistributionRun::class);
+    }
 }

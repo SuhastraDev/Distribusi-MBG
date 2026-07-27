@@ -3,6 +3,7 @@
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Auth\PasswordController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\DistributionRunController;
 use App\Http\Controllers\DistributionScheduleController;
 use App\Http\Controllers\LocationController;
 use App\Http\Controllers\OfficerController;
@@ -65,4 +66,24 @@ Route::middleware('auth')->group(function (): void {
     Route::delete('/distribution-schedules/{distribution_schedule}/destinations/{destination}', [DistributionScheduleController::class, 'destroyDestination'])
         ->middleware('role:admin')
         ->name('distribution-schedules.destinations.destroy');
+
+    Route::resource('distribution-runs', DistributionRunController::class)
+        ->only(['index', 'create', 'store', 'show'])
+        ->middleware('role:admin,petugas,kepala_sppg');
+
+    Route::post('/distribution-runs/{distribution_run}/start', [DistributionRunController::class, 'start'])
+        ->middleware('role:admin,petugas')
+        ->name('distribution-runs.start');
+
+    Route::post('/distribution-runs/{distribution_run}/complete', [DistributionRunController::class, 'complete'])
+        ->middleware('role:admin,petugas')
+        ->name('distribution-runs.complete');
+
+    Route::post('/distribution-runs/{distribution_run}/cancel', [DistributionRunController::class, 'cancel'])
+        ->middleware('role:admin,petugas')
+        ->name('distribution-runs.cancel');
+
+    Route::put('/distribution-runs/{distribution_run}/destinations/{destination}', [DistributionRunController::class, 'updateDestination'])
+        ->middleware('role:admin,petugas')
+        ->name('distribution-runs.destinations.update');
 });

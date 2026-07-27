@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 #[Fillable(['distribution_schedule_id', 'location_id', 'recipient_id', 'portion_count', 'sequence_order'])]
 class DistributionScheduleDestination extends Model
@@ -47,5 +48,13 @@ class DistributionScheduleDestination extends Model
     public function recipient(): BelongsTo
     {
         return $this->belongsTo(Recipient::class);
+    }
+
+    /**
+     * @return HasMany<DistributionRunDestination, $this>
+     */
+    public function runDestinations(): HasMany
+    {
+        return $this->hasMany(DistributionRunDestination::class);
     }
 }

@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Models\DistributionRun;
 use App\Models\DistributionSchedule;
 use App\Models\Location;
 use App\Models\Officer;
@@ -202,5 +203,28 @@ class DatabaseSeeder extends Seeder
         }
 
         $schedule->recalculateTotalPortions();
+
+        $run = DistributionRun::query()->updateOrCreate(
+            ['code' => 'RUN-DEMO-001'],
+            [
+                'distribution_schedule_id' => $schedule->id,
+                'officer_id' => $officer->id,
+                'status' => 'ready',
+                'notes' => 'Distribusi aktual demo dari jadwal SCHD-DEMO-001.',
+            ]
+        );
+
+        $run->destinations()->delete();
+
+        foreach ($schedule->destinations()->orderBy('sequence_order')->get() as $destination) {
+            $run->destinations()->create([
+                'distribution_schedule_destination_id' => $destination->id,
+                'location_id' => $destination->location_id,
+                'recipient_id' => $destination->recipient_id,
+                'planned_portion_count' => $destination->portion_count,
+                'sequence_order' => $destination->sequence_order,
+                'status' => 'pending',
+            ]);
+        }
     }
 }

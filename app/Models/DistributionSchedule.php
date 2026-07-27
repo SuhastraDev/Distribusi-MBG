@@ -50,6 +50,14 @@ class DistributionSchedule extends Model
         return $this->hasMany(DistributionScheduleDestination::class);
     }
 
+    /**
+     * @return HasMany<DistributionRun, $this>
+     */
+    public function runs(): HasMany
+    {
+        return $this->hasMany(DistributionRun::class);
+    }
+
     public function recalculateTotalPortions(): void
     {
         $this->update([
