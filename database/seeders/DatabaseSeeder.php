@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Models\Location;
 use App\Models\Officer;
+use App\Models\Recipient;
 use App\Models\Role;
 use App\Models\User;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
@@ -141,6 +142,32 @@ class DatabaseSeeder extends Seeder
             Location::query()->updateOrCreate(
                 ['code' => $location['code']],
                 array_merge($location, ['status' => 'active'])
+            );
+        }
+
+        $recipients = [
+            ['code' => 'RCV-SCH-0001', 'location_code' => 'SCH-0001', 'name' => 'Siswa SD Negeri 85 Palembang', 'portion_count' => 180],
+            ['code' => 'RCV-SCH-0002', 'location_code' => 'SCH-0002', 'name' => 'Siswa SMP Negeri 16 Palembang', 'portion_count' => 220],
+            ['code' => 'RCV-SCH-0003', 'location_code' => 'SCH-0003', 'name' => 'Siswa SD Negeri 95 Palembang', 'portion_count' => 160],
+            ['code' => 'RCV-SCH-0004', 'location_code' => 'SCH-0004', 'name' => 'Siswa SMP Negeri 30 Palembang', 'portion_count' => 210],
+            ['code' => 'RCV-SCH-0005', 'location_code' => 'SCH-0005', 'name' => 'Siswa SD Negeri 70 Palembang', 'portion_count' => 150],
+            ['code' => 'RCV-SCH-0006', 'location_code' => 'SCH-0006', 'name' => 'Siswa SMP Negeri 7 Palembang', 'portion_count' => 200],
+        ];
+
+        foreach ($recipients as $recipient) {
+            $location = Location::query()
+                ->where('code', $recipient['location_code'])
+                ->firstOrFail();
+
+            Recipient::query()->updateOrCreate(
+                ['code' => $recipient['code']],
+                [
+                    'location_id' => $location->id,
+                    'name' => $recipient['name'],
+                    'portion_count' => $recipient['portion_count'],
+                    'notes' => 'Data dummy untuk demo distribusi MBG.',
+                    'status' => 'active',
+                ]
             );
         }
     }

@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 #[Fillable(['code', 'name', 'type', 'address', 'latitude', 'longitude', 'status'])]
 class Location extends Model
@@ -37,6 +38,14 @@ class Location extends Model
     public function isActive(): bool
     {
         return $this->status === 'active';
+    }
+
+    /**
+     * @return HasMany<Recipient, $this>
+     */
+    public function recipients(): HasMany
+    {
+        return $this->hasMany(Recipient::class);
     }
 
     public function typeLabel(): string
