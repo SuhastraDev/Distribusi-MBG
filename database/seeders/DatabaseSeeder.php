@@ -10,6 +10,7 @@ use App\Models\Recipient;
 use App\Models\Role;
 use App\Models\User;
 use App\Services\GreedyRouteService;
+use Carbon\CarbonInterface;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
@@ -23,25 +24,43 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        $adminRole = Role::query()->updateOrCreate(
-            ['name' => 'admin'],
-            ['display_name' => 'Admin']
-        );
+        $roles = $this->seedRoles();
+        $this->seedUsersAndOfficers($roles);
+        $this->seedLocations();
+        $this->seedRecipients();
+        $this->seedDemoSchedulesAndRuns();
+    }
 
-        $officerRole = Role::query()->updateOrCreate(
-            ['name' => 'petugas'],
-            ['display_name' => 'Petugas Distribusi']
-        );
+    /**
+     * @return array<string, Role>
+     */
+    private function seedRoles(): array
+    {
+        return [
+            'admin' => Role::query()->updateOrCreate(
+                ['name' => 'admin'],
+                ['display_name' => 'Admin']
+            ),
+            'petugas' => Role::query()->updateOrCreate(
+                ['name' => 'petugas'],
+                ['display_name' => 'Petugas Distribusi']
+            ),
+            'kepala_sppg' => Role::query()->updateOrCreate(
+                ['name' => 'kepala_sppg'],
+                ['display_name' => 'Kepala SPPG']
+            ),
+        ];
+    }
 
-        $headRole = Role::query()->updateOrCreate(
-            ['name' => 'kepala_sppg'],
-            ['display_name' => 'Kepala SPPG']
-        );
-
+    /**
+     * @param  array<string, Role>  $roles
+     */
+    private function seedUsersAndOfficers(array $roles): void
+    {
         User::query()->updateOrCreate(
             ['email' => 'admin@distribusimbg.test'],
             [
-                'role_id' => $adminRole->id,
+                'role_id' => $roles['admin']->id,
                 'name' => 'Admin Distribusi MBG',
                 'phone' => '081200000001',
                 'status' => 'active',
@@ -52,36 +71,58 @@ class DatabaseSeeder extends Seeder
         User::query()->updateOrCreate(
             ['email' => 'kepala@distribusimbg.test'],
             [
-                'role_id' => $headRole->id,
-                'name' => 'Kepala SPPG',
+                'role_id' => $roles['kepala_sppg']->id,
+                'name' => 'Kepala SPPG Tangga Takat 2',
                 'phone' => '081200000002',
                 'status' => 'active',
                 'password' => Hash::make('password'),
             ]
         );
 
-        $officerUser = User::query()->updateOrCreate(
-            ['email' => 'petugas@distribusimbg.test'],
+        $officers = [
             [
-                'role_id' => $officerRole->id,
-                'name' => 'Petugas Distribusi',
+                'email' => 'petugas@distribusimbg.test',
+                'user_name' => 'Petugas Distribusi 1',
+                'officer_code' => 'PTG-0001',
+                'officer_name' => 'Rizky Pratama',
                 'phone' => '081200000003',
-                'status' => 'active',
-                'password' => Hash::make('password'),
-            ]
-        );
-
-        Officer::query()->updateOrCreate(
-            ['officer_code' => 'PTG-0001'],
+            ],
             [
-                'user_id' => $officerUser->id,
-                'name' => 'Petugas Distribusi',
-                'phone' => '081200000003',
-                'address' => 'SPPG Tangga Takat 2 Palembang',
-                'status' => 'active',
-            ]
-        );
+                'email' => 'petugas2@distribusimbg.test',
+                'user_name' => 'Petugas Distribusi 2',
+                'officer_code' => 'PTG-0002',
+                'officer_name' => 'Dewi Lestari',
+                'phone' => '081200000004',
+            ],
+        ];
 
+        foreach ($officers as $officerData) {
+            $user = User::query()->updateOrCreate(
+                ['email' => $officerData['email']],
+                [
+                    'role_id' => $roles['petugas']->id,
+                    'name' => $officerData['user_name'],
+                    'phone' => $officerData['phone'],
+                    'status' => 'active',
+                    'password' => Hash::make('password'),
+                ]
+            );
+
+            Officer::query()->updateOrCreate(
+                ['officer_code' => $officerData['officer_code']],
+                [
+                    'user_id' => $user->id,
+                    'name' => $officerData['officer_name'],
+                    'phone' => $officerData['phone'],
+                    'address' => 'SPPG Tangga Takat 2 Palembang',
+                    'status' => 'active',
+                ]
+            );
+        }
+    }
+
+    private function seedLocations(): void
+    {
         $locations = [
             [
                 'code' => 'DEPOT-SPPG-TT2',
@@ -147,7 +188,10 @@ class DatabaseSeeder extends Seeder
                 array_merge($location, ['status' => 'active'])
             );
         }
+    }
 
+    private function seedRecipients(): void
+    {
         $recipients = [
             ['code' => 'RCV-SCH-0001', 'location_code' => 'SCH-0001', 'name' => 'Siswa SD Negeri 85 Palembang', 'portion_count' => 180],
             ['code' => 'RCV-SCH-0002', 'location_code' => 'SCH-0002', 'name' => 'Siswa SMP Negeri 16 Palembang', 'portion_count' => 220],
@@ -173,61 +217,184 @@ class DatabaseSeeder extends Seeder
                 ]
             );
         }
+    }
 
-        $officer = Officer::query()->where('officer_code', 'PTG-0001')->firstOrFail();
+    private function seedDemoSchedulesAndRuns(): void
+    {
         $depot = Location::query()->where('code', 'DEPOT-SPPG-TT2')->firstOrFail();
-        $demoRecipients = Recipient::query()
-            ->whereIn('code', ['RCV-SCH-0001', 'RCV-SCH-0002'])
+        $officerOne = Officer::query()->where('officer_code', 'PTG-0001')->firstOrFail();
+        $officerTwo = Officer::query()->where('officer_code', 'PTG-0002')->firstOrFail();
+
+        $this->seedDemoRun(
+            scheduleCode: 'SCHD-DEMO-AKTIF',
+            runCode: 'RUN-DEMO-AKTIF',
+            officer: $officerOne,
+            depot: $depot,
+            recipientCodes: ['RCV-SCH-0001', 'RCV-SCH-0002', 'RCV-SCH-0003'],
+            scheduledDate: now(),
+            runStatus: 'in_progress',
+            scheduleNotes: 'Jadwal demo distribusi aktif untuk simulasi monitoring realtime.',
+            runNotes: 'Distribusi aktif demo: satu tujuan terkirim, satu tiba, satu menunggu.',
+        );
+
+        $this->seedDemoRun(
+            scheduleCode: 'SCHD-DEMO-SELESAI',
+            runCode: 'RUN-DEMO-SELESAI',
+            officer: $officerTwo,
+            depot: $depot,
+            recipientCodes: ['RCV-SCH-0004', 'RCV-SCH-0005', 'RCV-SCH-0006'],
+            scheduledDate: now()->subDay(),
+            runStatus: 'completed',
+            scheduleNotes: 'Jadwal demo distribusi selesai untuk laporan skripsi.',
+            runNotes: 'Distribusi selesai demo: seluruh tujuan sudah terkirim.',
+        );
+    }
+
+    /**
+     * @param  array<int, string>  $recipientCodes
+     */
+    private function seedDemoRun(
+        string $scheduleCode,
+        string $runCode,
+        Officer $officer,
+        Location $depot,
+        array $recipientCodes,
+        CarbonInterface $scheduledDate,
+        string $runStatus,
+        string $scheduleNotes,
+        string $runNotes,
+    ): void {
+        $recipients = Recipient::query()
+            ->whereIn('code', $recipientCodes)
             ->with('location')
-            ->get();
+            ->get()
+            ->sortBy(fn (Recipient $recipient): int => array_search($recipient->code, $recipientCodes, true))
+            ->values();
 
         $schedule = DistributionSchedule::query()->updateOrCreate(
-            ['code' => 'SCHD-DEMO-001'],
+            ['code' => $scheduleCode],
             [
-                'scheduled_date' => now()->toDateString(),
+                'scheduled_date' => $scheduledDate->toDateString(),
                 'officer_id' => $officer->id,
                 'depot_location_id' => $depot->id,
-                'status' => 'scheduled',
-                'notes' => 'Jadwal demo awal untuk perencanaan distribusi MBG.',
+                'status' => $runStatus === 'completed' ? 'completed' : 'scheduled',
+                'notes' => $scheduleNotes,
             ]
         );
 
+        $run = DistributionRun::query()->updateOrCreate(
+            ['code' => $runCode],
+            [
+                'distribution_schedule_id' => $schedule->id,
+                'officer_id' => $officer->id,
+                'status' => $runStatus,
+                'started_at' => $this->startedAtFor($runStatus, $scheduledDate),
+                'completed_at' => $runStatus === 'completed' ? $scheduledDate->copy()->setTime(9, 25) : null,
+                'notes' => $runNotes,
+            ]
+        );
+
+        $run->routePlan?->delete();
+        $run->officerPositions()->delete();
+        $run->destinations()->delete();
         $schedule->destinations()->delete();
 
-        foreach ($demoRecipients->values() as $index => $recipient) {
-            $schedule->destinations()->create([
+        foreach ($recipients as $index => $recipient) {
+            $scheduleDestination = $schedule->destinations()->create([
                 'location_id' => $recipient->location_id,
                 'recipient_id' => $recipient->id,
                 'portion_count' => $recipient->portion_count,
                 'sequence_order' => $index + 1,
             ]);
+
+            $run->destinations()->create($this->destinationPayload(
+                runStatus: $runStatus,
+                scheduleDestinationId: $scheduleDestination->id,
+                recipient: $recipient,
+                sequenceOrder: $index + 1,
+                scheduledDate: $scheduledDate,
+            ));
         }
 
         $schedule->recalculateTotalPortions();
 
-        $run = DistributionRun::query()->updateOrCreate(
-            ['code' => 'RUN-DEMO-001'],
-            [
-                'distribution_schedule_id' => $schedule->id,
-                'officer_id' => $officer->id,
-                'status' => 'ready',
-                'notes' => 'Distribusi aktual demo dari jadwal SCHD-DEMO-001.',
-            ]
-        );
+        $run->load('destinations.location', 'schedule.depot');
+        app(GreedyRouteService::class)->generate($run);
+        $this->seedOfficerPositions($run);
+    }
 
-        $run->destinations()->delete();
+    /**
+     * @return array<string, mixed>
+     */
+    private function destinationPayload(
+        string $runStatus,
+        int $scheduleDestinationId,
+        Recipient $recipient,
+        int $sequenceOrder,
+        CarbonInterface $scheduledDate,
+    ): array {
+        $isCompletedRun = $runStatus === 'completed';
+        $isDeliveredInActiveRun = $runStatus === 'in_progress' && $sequenceOrder === 1;
+        $isArrivedInActiveRun = $runStatus === 'in_progress' && $sequenceOrder === 2;
 
-        foreach ($schedule->destinations()->orderBy('sequence_order')->get() as $destination) {
-            $run->destinations()->create([
-                'distribution_schedule_destination_id' => $destination->id,
-                'location_id' => $destination->location_id,
-                'recipient_id' => $destination->recipient_id,
-                'planned_portion_count' => $destination->portion_count,
-                'sequence_order' => $destination->sequence_order,
-                'status' => 'pending',
-            ]);
+        return [
+            'distribution_schedule_destination_id' => $scheduleDestinationId,
+            'location_id' => $recipient->location_id,
+            'recipient_id' => $recipient->id,
+            'planned_portion_count' => $recipient->portion_count,
+            'delivered_portion_count' => $isCompletedRun || $isDeliveredInActiveRun ? $recipient->portion_count : null,
+            'sequence_order' => $sequenceOrder,
+            'status' => match (true) {
+                $isCompletedRun, $isDeliveredInActiveRun => 'delivered',
+                $isArrivedInActiveRun => 'arrived',
+                default => 'pending',
+            },
+            'arrived_at' => $isCompletedRun || $isDeliveredInActiveRun || $isArrivedInActiveRun
+                ? $scheduledDate->copy()->setTime(8, 20 + ($sequenceOrder * 10))
+                : null,
+            'delivered_at' => $isCompletedRun || $isDeliveredInActiveRun
+                ? $scheduledDate->copy()->setTime(8, 30 + ($sequenceOrder * 10))
+                : null,
+            'proof_notes' => $isCompletedRun || $isDeliveredInActiveRun
+                ? 'Porsi diterima sesuai data demo skripsi.'
+                : ($isArrivedInActiveRun ? 'Petugas sudah tiba dan sedang serah terima.' : null),
+        ];
+    }
+
+    private function startedAtFor(string $runStatus, CarbonInterface $scheduledDate): ?CarbonInterface
+    {
+        if ($runStatus === 'ready') {
+            return null;
         }
 
-        app(GreedyRouteService::class)->generate($run);
+        if ($runStatus === 'completed') {
+            return $scheduledDate->copy()->setTime(8, 0);
+        }
+
+        return now()->subMinutes(45);
+    }
+
+    private function seedOfficerPositions(DistributionRun $run): void
+    {
+        $run->loadMissing('officer', 'schedule.depot');
+
+        $positions = $run->status === 'completed'
+            ? [
+                ['latitude' => -3.0216200, 'longitude' => 104.7890400, 'recorded_at' => $run->completed_at ?? now()->subDay()],
+            ]
+            : [
+                ['latitude' => -3.0251500, 'longitude' => 104.7792500, 'recorded_at' => now()->subMinutes(40)],
+                ['latitude' => -3.0144100, 'longitude' => 104.7599300, 'recorded_at' => now()->subMinutes(10)],
+            ];
+
+        collect($positions)->each(function (array $position) use ($run): void {
+            $run->officerPositions()->create([
+                'officer_id' => $run->officer_id,
+                'latitude' => $position['latitude'],
+                'longitude' => $position['longitude'],
+                'accuracy_meters' => 12.5,
+                'recorded_at' => $position['recorded_at'],
+            ]);
+        });
     }
 }
