@@ -119,6 +119,14 @@ Route::middleware('auth')->group(function (): void {
         ->middleware('role:admin,kepala_sppg')
         ->name('reports.distributions.export');
 
+    Route::get('/reports/distributions/export-excel', [DistributionReportController::class, 'exportExcel'])
+        ->middleware('role:admin,kepala_sppg')
+        ->name('reports.distributions.export-excel');
+
+    Route::get('/reports/distributions/{distribution_run}', [DistributionReportController::class, 'show'])
+        ->middleware('role:admin,kepala_sppg')
+        ->name('reports.distributions.show');
+
     Route::prefix('api/frontend')
         ->middleware('role:admin,petugas,kepala_sppg')
         ->name('api.frontend.')

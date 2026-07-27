@@ -70,6 +70,39 @@ class DistributionReportTest extends TestCase
             ->assertSee('Total distribusi: 1');
     }
 
+    public function test_report_can_filter_by_officer(): void
+    {
+        $admin = $this->createUserWithRole('admin');
+        $selectedOfficer = $this->createOfficer();
+        $selectedRun = $this->createRunWithReportData('completed', '2026-08-01', $selectedOfficer);
+        $otherRun = $this->createRunWithReportData('completed', '2026-08-01');
+
+        $this->actingAs($admin)
+            ->get(route('reports.distributions.index', ['officer_id' => $selectedOfficer->id]))
+            ->assertOk()
+            ->assertSee($selectedOfficer->name)
+            ->assertSee($selectedRun->code)
+            ->assertDontSee($otherRun->code)
+            ->assertSee('Total distribusi: 1');
+    }
+
+    public function test_admin_can_view_distribution_report_detail(): void
+    {
+        $admin = $this->createUserWithRole('admin');
+        $run = $this->createRunWithReportData('completed', '2026-08-01');
+
+        $this->actingAs($admin)
+            ->get(route('reports.distributions.show', $run))
+            ->assertOk()
+            ->assertSee('Detail Laporan Distribusi')
+            ->assertSee($run->code)
+            ->assertSee('Status akhir')
+            ->assertSee('Waktu aktual')
+            ->assertSee('Detail tujuan')
+            ->assertSee('Timeline status')
+            ->assertSee('Tujuan selesai');
+    }
+
     public function test_admin_can_export_distribution_report_csv(): void
     {
         $admin = $this->createUserWithRole('admin');
@@ -88,9 +121,27 @@ class DistributionReportTest extends TestCase
         $this->assertStringContainsString('completed', $content);
     }
 
-    private function createRunWithReportData(string $status, string $scheduledDate): DistributionRun
+    public function test_admin_can_export_distribution_report_excel(): void
     {
-        $officer = $this->createOfficer();
+        $admin = $this->createUserWithRole('admin');
+        $run = $this->createRunWithReportData('completed', '2026-08-01');
+
+        $response = $this->actingAs($admin)
+            ->get(route('reports.distributions.export-excel', ['status' => 'completed']));
+
+        $response->assertOk();
+        $this->assertStringContainsString('application/vnd.ms-excel', $response->headers->get('content-type'));
+
+        $content = $response->streamedContent();
+
+        $this->assertStringContainsString('<table border="1">', $content);
+        $this->assertStringContainsString('Waktu Aktual Menit', $content);
+        $this->assertStringContainsString($run->code, $content);
+    }
+
+    private function createRunWithReportData(string $status, string $scheduledDate, ?Officer $officer = null): DistributionRun
+    {
+        $officer ??= $this->createOfficer();
         $depot = Location::factory()->create(['type' => 'depot']);
         $location = Location::factory()->create();
         $recipient = Recipient::factory()->create(['location_id' => $location->id, 'portion_count' => 100]);
@@ -110,6 +161,8 @@ class DistributionReportTest extends TestCase
             'distribution_schedule_id' => $schedule->id,
             'officer_id' => $officer->id,
             'status' => $status,
+            'started_at' => $status === 'completed' ? '2026-08-01 08:00:00' : null,
+            'completed_at' => $status === 'completed' ? '2026-08-01 09:15:00' : null,
         ]);
 
         DistributionRunDestination::factory()->create([
@@ -120,6 +173,9 @@ class DistributionReportTest extends TestCase
             'planned_portion_count' => 100,
             'delivered_portion_count' => $status === 'completed' ? 95 : null,
             'status' => $status === 'completed' ? 'delivered' : 'pending',
+            'arrived_at' => $status === 'completed' ? '2026-08-01 08:45:00' : null,
+            'delivered_at' => $status === 'completed' ? '2026-08-01 09:00:00' : null,
+            'proof_notes' => $status === 'completed' ? 'Porsi diterima pihak sekolah.' : null,
         ]);
 
         RoutePlan::factory()->create([

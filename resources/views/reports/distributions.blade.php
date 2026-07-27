@@ -13,6 +13,18 @@
 
         <br>
 
+        <label for="officer_id">Petugas</label><br>
+        <select id="officer_id" name="officer_id">
+            <option value="">Semua petugas</option>
+            @foreach ($officers as $officer)
+                <option value="{{ $officer->id }}" @selected((string) ($filters['officer_id'] ?? '') === (string) $officer->id)>
+                    {{ $officer->name }}
+                </option>
+            @endforeach
+        </select>
+
+        <br>
+
         <label for="status">Status</label><br>
         <select id="status" name="status">
             <option value="">Semua status</option>
@@ -30,6 +42,8 @@
 
     <p>
         <a href="{{ route('reports.distributions.export', request()->query()) }}">Export CSV</a>
+        |
+        <a href="{{ route('reports.distributions.export-excel', request()->query()) }}">Export Excel</a>
     </p>
 
     <h2>Ringkasan</h2>
@@ -72,7 +86,11 @@
                     <td>{{ $run->destinations->where('status', 'delivered')->count() }} / {{ $run->destinations->count() }}</td>
                     <td>{{ $run->destinations->where('status', 'delivered')->sum('delivered_portion_count') }} / {{ $run->destinations->sum('planned_portion_count') }}</td>
                     <td>{{ $run->routePlan?->total_distance_km ?? 0 }} km</td>
-                    <td><a href="{{ route('distribution-runs.show', $run) }}">Detail</a></td>
+                    <td>
+                        <a href="{{ route('reports.distributions.show', $run) }}">Detail Laporan</a>
+                        |
+                        <a href="{{ route('distribution-runs.show', $run) }}">Detail Distribusi</a>
+                    </td>
                 </tr>
             @empty
                 <tr>
