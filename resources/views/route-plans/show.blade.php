@@ -22,6 +22,14 @@
                 'latitude' => (float) $routePlan->run->schedule->depot->latitude,
                 'longitude' => (float) $routePlan->run->schedule->depot->longitude,
             ],
+            'officerPosition' => $routePlan->run->latestOfficerPosition ? [
+                'latitude' => (float) $routePlan->run->latestOfficerPosition->latitude,
+                'longitude' => (float) $routePlan->run->latestOfficerPosition->longitude,
+                'accuracy' => $routePlan->run->latestOfficerPosition->accuracy_meters === null
+                    ? null
+                    : (float) $routePlan->run->latestOfficerPosition->accuracy_meters,
+                'recordedAt' => $routePlan->run->latestOfficerPosition->recorded_at->format('d/m/Y H:i'),
+            ] : null,
             'steps' => $routePlan->steps->map(fn ($step): array => [
                 'order' => $step->step_order,
                 'type' => $step->step_type,
@@ -81,6 +89,24 @@
                 .addTo(routeMap)
                 .bindPopup(popup);
         });
+
+        if (routeMapData.officerPosition) {
+            L.circleMarker([
+                routeMapData.officerPosition.latitude,
+                routeMapData.officerPosition.longitude,
+            ], {
+                radius: 9,
+                color: '#dc2626',
+                fillColor: '#ef4444',
+                fillOpacity: 0.85,
+            })
+                .addTo(routeMap)
+                .bindPopup(`
+                    <strong>Posisi Petugas</strong><br>
+                    Update: ${routeMapData.officerPosition.recordedAt}<br>
+                    Akurasi: ${routeMapData.officerPosition.accuracy ?? '-'} meter
+                `);
+        }
 
         if (latLngs.length > 1) {
             L.polyline(latLngs, {color: '#2563eb', weight: 4}).addTo(routeMap);

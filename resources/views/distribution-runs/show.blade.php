@@ -10,6 +10,7 @@
     <p><strong>Selesai:</strong> {{ $distributionRun->completed_at?->format('d/m/Y H:i') ?? '-' }}</p>
     <p><strong>Catatan:</strong> {{ $distributionRun->notes ?: '-' }}</p>
     <p><strong>Total porsi terkirim:</strong> {{ $distributionRun->deliveredPortions() }}</p>
+    <p><strong>Posisi terbaru:</strong> <a href="{{ route('distribution-runs.positions.latest', $distributionRun) }}">JSON Posisi Petugas</a></p>
 
     <p><a href="{{ route('distribution-runs.index') }}">Kembali</a></p>
 
@@ -31,6 +32,32 @@
         @endif
 
         @if ($distributionRun->status === 'in_progress')
+            <h2>Update Posisi Petugas</h2>
+
+            <form method="POST" action="{{ route('distribution-runs.positions.store', $distributionRun) }}">
+                @csrf
+
+                <label for="latitude">Latitude</label><br>
+                <input id="latitude" name="latitude" type="number" step="0.0000001" value="{{ old('latitude') }}" required>
+                @error('latitude') <p style="color: #dc2626;">{{ $message }}</p> @enderror
+
+                <br>
+
+                <label for="longitude">Longitude</label><br>
+                <input id="longitude" name="longitude" type="number" step="0.0000001" value="{{ old('longitude') }}" required>
+                @error('longitude') <p style="color: #dc2626;">{{ $message }}</p> @enderror
+
+                <br>
+
+                <label for="accuracy_meters">Akurasi GPS (meter)</label><br>
+                <input id="accuracy_meters" name="accuracy_meters" type="number" step="0.01" min="0" value="{{ old('accuracy_meters') }}">
+                @error('accuracy_meters') <p style="color: #dc2626;">{{ $message }}</p> @enderror
+
+                <br>
+
+                <button type="submit">Update Posisi</button>
+            </form>
+
             <form method="POST" action="{{ route('distribution-runs.complete', $distributionRun) }}">
                 @csrf
                 <button type="submit">Selesaikan Distribusi</button>

@@ -59,6 +59,22 @@ class DistributionRun extends Model
         return $this->hasOne(RoutePlan::class);
     }
 
+    /**
+     * @return HasMany<OfficerPosition, $this>
+     */
+    public function officerPositions(): HasMany
+    {
+        return $this->hasMany(OfficerPosition::class);
+    }
+
+    /**
+     * @return HasOne<OfficerPosition, $this>
+     */
+    public function latestOfficerPosition(): HasOne
+    {
+        return $this->hasOne(OfficerPosition::class)->latestOfMany('recorded_at');
+    }
+
     public function canBeStarted(): bool
     {
         return $this->status === 'ready';

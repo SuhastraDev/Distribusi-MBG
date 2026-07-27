@@ -26,6 +26,7 @@ class RoutePlanController extends Controller
         $routePlan->load([
             'run.schedule.depot',
             'run.officer',
+            'run.latestOfficerPosition',
             'steps.location',
             'steps.runDestination.recipient',
         ]);
@@ -38,6 +39,7 @@ class RoutePlanController extends Controller
         $routePlan->load([
             'run.schedule.depot',
             'run.officer',
+            'run.latestOfficerPosition',
             'steps.location',
             'steps.runDestination.recipient',
         ]);
@@ -61,6 +63,14 @@ class RoutePlanController extends Controller
                 'latitude' => (float) $routePlan->run->schedule->depot->latitude,
                 'longitude' => (float) $routePlan->run->schedule->depot->longitude,
             ],
+            'officer_position' => $routePlan->run->latestOfficerPosition ? [
+                'latitude' => (float) $routePlan->run->latestOfficerPosition->latitude,
+                'longitude' => (float) $routePlan->run->latestOfficerPosition->longitude,
+                'accuracy_meters' => $routePlan->run->latestOfficerPosition->accuracy_meters === null
+                    ? null
+                    : (float) $routePlan->run->latestOfficerPosition->accuracy_meters,
+                'recorded_at' => $routePlan->run->latestOfficerPosition->recorded_at->toIso8601String(),
+            ] : null,
             'steps' => $routePlan->steps->map(fn ($step): array => [
                 'order' => $step->step_order,
                 'type' => $step->step_type,

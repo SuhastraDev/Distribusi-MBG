@@ -54,4 +54,12 @@ class Officer extends Model
     {
         return $this->hasMany(DistributionRun::class);
     }
+
+    /**
+     * @return HasMany<OfficerPosition, $this>
+     */
+    public function positions(): HasMany
+    {
+        return $this->hasMany(OfficerPosition::class);
+    }
 }

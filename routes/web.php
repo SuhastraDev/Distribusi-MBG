@@ -7,6 +7,7 @@ use App\Http\Controllers\DistributionRunController;
 use App\Http\Controllers\DistributionScheduleController;
 use App\Http\Controllers\LocationController;
 use App\Http\Controllers\OfficerController;
+use App\Http\Controllers\OfficerPositionController;
 use App\Http\Controllers\RecipientController;
 use App\Http\Controllers\RoutePlanController;
 use Illuminate\Support\Facades\Route;
@@ -87,6 +88,14 @@ Route::middleware('auth')->group(function (): void {
     Route::put('/distribution-runs/{distribution_run}/destinations/{destination}', [DistributionRunController::class, 'updateDestination'])
         ->middleware('role:admin,petugas')
         ->name('distribution-runs.destinations.update');
+
+    Route::post('/distribution-runs/{distribution_run}/positions', [OfficerPositionController::class, 'store'])
+        ->middleware('role:admin,petugas')
+        ->name('distribution-runs.positions.store');
+
+    Route::get('/distribution-runs/{distribution_run}/positions/latest', [OfficerPositionController::class, 'latest'])
+        ->middleware('role:admin,petugas,kepala_sppg')
+        ->name('distribution-runs.positions.latest');
 
     Route::resource('route-plans', RoutePlanController::class)
         ->only(['index', 'show'])
