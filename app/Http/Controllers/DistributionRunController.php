@@ -85,8 +85,10 @@ class DistributionRunController extends Controller
         $distributionRun->load([
             'schedule.depot',
             'officer.user',
+            'latestOfficerPosition',
             'destinations.location',
             'destinations.recipient',
+            'routePlan.steps.location',
         ]);
 
         return view('distribution-runs.show', compact('distributionRun'));

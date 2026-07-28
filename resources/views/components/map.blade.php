@@ -90,12 +90,31 @@
             // Add Polyline (Route)
             if (polylineData && polylineData.length > 1) {
                 polylineData.forEach(coord => bounds.push(coord));
-                L.polyline(polylineData, {
-                    color: '#2563eb',
-                    weight: 4,
-                    opacity: 0.8,
-                    smoothFactor: 1
-                }).addTo(map);
+                
+                // Draw actual road route using OSRM
+                const coordinatesString = polylineData.map(c => c[1] + ',' + c[0]).join(';');
+                fetch(`https://router.project-osrm.org/route/v1/driving/${coordinatesString}?geometries=geojson&overview=full`)
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data && data.routes && data.routes.length > 0) {
+                            // OSRM geometry is [longitude, latitude], Leaflet needs [latitude, longitude]
+                            const routeGeometry = data.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
+                            L.polyline(routeGeometry, {
+                                color: '#2563eb',
+                                weight: 5,
+                                opacity: 0.8,
+                                smoothFactor: 1
+                            }).addTo(map);
+                        } else {
+                            // Fallback to straight lines
+                            L.polyline(polylineData, { color: '#64748b', weight: 4, opacity: 0.8, dashArray: '5, 10' }).addTo(map);
+                        }
+                    })
+                    .catch(err => {
+                        console.error('OSRM Routing Error:', err);
+                        // Fallback to straight lines on error
+                        L.polyline(polylineData, { color: '#64748b', weight: 4, opacity: 0.8, dashArray: '5, 10' }).addTo(map);
+                    });
             }
 
             // Add Officer Live GPS Position
