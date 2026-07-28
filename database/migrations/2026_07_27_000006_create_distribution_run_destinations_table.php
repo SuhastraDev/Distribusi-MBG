@@ -11,7 +11,7 @@ return new class extends Migration
         Schema::create('distribution_run_destinations', function (Blueprint $table): void {
             $table->id();
             $table->foreignId('distribution_run_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('distribution_schedule_destination_id')->constrained()->restrictOnDelete();
+            $table->foreignId('distribution_schedule_destination_id')->constrained(indexName: 'drd_sched_dest_id_foreign')->restrictOnDelete();
             $table->foreignId('location_id')->constrained()->restrictOnDelete();
             $table->foreignId('recipient_id')->constrained()->restrictOnDelete();
             $table->unsignedInteger('planned_portion_count');
@@ -23,8 +23,8 @@ return new class extends Migration
             $table->text('proof_notes')->nullable();
             $table->timestamps();
 
-            $table->unique(['distribution_run_id', 'distribution_schedule_destination_id']);
-            $table->index(['distribution_run_id', 'status']);
+            $table->unique(['distribution_run_id', 'distribution_schedule_destination_id'], 'drd_run_sched_dest_unique');
+            $table->index(['distribution_run_id', 'status'], 'drd_run_status_index');
         });
     }
 
