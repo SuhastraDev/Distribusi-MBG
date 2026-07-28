@@ -19,10 +19,10 @@ Jangan simpan password VPS di repository. Untuk GitHub Actions, gunakan SSH key 
   - Menjalankan Pint, build Vite, dan test Laravel.
 
 - `.github/workflows/deploy-production.yml`
-  - Jalan manual dari tab Actions.
+  - Jalan otomatis saat push ke `main`.
+  - Tetap bisa dijalankan manual dari tab Actions.
   - Menjalankan verifikasi dulu.
   - Deploy ke VPS via SSH jika verifikasi lulus.
-  - Sengaja dibuat manual dulu agar workflow tidak gagal sebelum VPS dan GitHub Secrets siap.
 
 ## GitHub Secrets yang harus dibuat
 
@@ -243,8 +243,8 @@ sudo certbot --nginx -d nama-domain.duckdns.org
 
 Setelah secrets dan VPS siap:
 
-1. Buka tab GitHub Actions.
-2. Pilih workflow `Deploy Production`.
+1. Push perubahan ke branch `main`, atau buka tab GitHub Actions.
+2. Jika manual, pilih workflow `Deploy Production`.
 3. Klik `Run workflow`.
 
 Workflow akan:
