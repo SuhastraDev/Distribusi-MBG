@@ -28,8 +28,61 @@
                 </div>
             @endif
 
-            <form class="space-y-5" action="{{ route('login.store') }}" method="POST" x-data="{ loading: false }" @submit="loading = true">
+            <form
+                class="space-y-5"
+                action="{{ route('login.store') }}"
+                method="POST"
+                x-data="{
+                    loading: false,
+                    demoPassword: 'password',
+                    demoAccounts: [
+                        { role: 'Admin', email: 'admin@distribusimbg.test', tone: 'emerald', description: 'Kelola data & rute' },
+                        { role: 'Kepala SPPG', email: 'kepala@distribusimbg.test', tone: 'blue', description: 'Monitoring & laporan' },
+                        { role: 'Petugas', email: 'petugas@distribusimbg.test', tone: 'amber', description: 'Update distribusi' },
+                    ],
+                    fillDemo(account) {
+                        this.$refs.email.value = account.email;
+                        this.$refs.password.value = this.demoPassword;
+                        this.$refs.email.dispatchEvent(new Event('input', { bubbles: true }));
+                        this.$refs.password.dispatchEvent(new Event('input', { bubbles: true }));
+                        this.$refs.email.focus();
+                    },
+                }"
+                @submit="loading = true"
+            >
                 @csrf
+
+                <div class="rounded-2xl border border-dashed border-emerald-200 bg-emerald-50/60 p-4">
+                    <div class="flex items-start gap-3">
+                        <div class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-sm">
+                            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7h3m0 0v3m0-3-5 5m-3-3H6a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h7a2 2 0 0 0 2-2v-4"></path>
+                            </svg>
+                        </div>
+                        <div>
+                            <p class="text-sm font-semibold text-slate-800">Shortcut akun demo</p>
+                            <p class="mt-0.5 text-xs leading-5 text-slate-500">Klik salah satu role untuk mengisi email dan password otomatis.</p>
+                        </div>
+                    </div>
+
+                    <div class="mt-4 grid gap-2">
+                        <template x-for="account in demoAccounts" :key="account.email">
+                            <button
+                                type="button"
+                                class="group flex w-full items-center justify-between rounded-xl border border-white/80 bg-white px-3 py-2.5 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-emerald-200 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
+                                @click="fillDemo(account)"
+                            >
+                                <span>
+                                    <span class="block text-sm font-semibold text-slate-800" x-text="account.role"></span>
+                                    <span class="block text-xs text-slate-500" x-text="account.description"></span>
+                                </span>
+                                <span class="rounded-lg bg-slate-100 px-2 py-1 text-[11px] font-semibold text-slate-500 transition group-hover:bg-emerald-100 group-hover:text-emerald-700">
+                                    Pakai akun
+                                </span>
+                            </button>
+                        </template>
+                    </div>
+                </div>
 
                 <div>
                     <x-input 
@@ -41,6 +94,7 @@
                         autofocus 
                         placeholder="contoh: admin@mbg.id" 
                         autocomplete="email"
+                        x-ref="email"
                     />
                 </div>
 
@@ -52,6 +106,7 @@
                         required 
                         placeholder="••••••••" 
                         autocomplete="current-password"
+                        x-ref="password"
                     />
                 </div>
 

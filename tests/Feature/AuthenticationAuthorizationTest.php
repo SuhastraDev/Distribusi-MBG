@@ -16,7 +16,11 @@ class AuthenticationAuthorizationTest extends TestCase
     {
         $this->get(route('login'))
             ->assertOk()
-            ->assertSee('Login Sistem Distribusi MBG');
+            ->assertSee('Login Sistem Distribusi MBG')
+            ->assertSee('Shortcut akun demo')
+            ->assertSee('admin@distribusimbg.test')
+            ->assertSee('kepala@distribusimbg.test')
+            ->assertSee('petugas@distribusimbg.test');
     }
 
     public function test_active_user_can_login_and_is_redirected_to_role_dashboard(): void
