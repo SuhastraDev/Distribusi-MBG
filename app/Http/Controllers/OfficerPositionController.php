@@ -10,12 +10,12 @@ use Illuminate\Http\RedirectResponse;
 
 class OfficerPositionController extends Controller
 {
-    public function store(StoreOfficerPositionRequest $request, DistributionRun $distributionRun): RedirectResponse
+    public function store(StoreOfficerPositionRequest $request, DistributionRun $distributionRun): RedirectResponse|JsonResponse
     {
         $this->authorizeRunOfficer($distributionRun);
         $this->ensureRunCanReceivePosition($distributionRun);
 
-        OfficerPosition::query()->create([
+        $position = OfficerPosition::query()->create([
             'distribution_run_id' => $distributionRun->id,
             'officer_id' => $distributionRun->officer_id,
             'latitude' => $request->float('latitude'),
@@ -23,6 +23,18 @@ class OfficerPositionController extends Controller
             'accuracy_meters' => $request->filled('accuracy_meters') ? $request->float('accuracy_meters') : null,
             'recorded_at' => $request->date('recorded_at') ?? now(),
         ]);
+
+        if ($request->wantsJson()) {
+            return response()->json([
+                'status' => 'ok',
+                'position' => [
+                    'latitude' => (float) $position->latitude,
+                    'longitude' => (float) $position->longitude,
+                    'accuracy_meters' => $position->accuracy_meters === null ? null : (float) $position->accuracy_meters,
+                    'recorded_at' => $position->recorded_at->toIso8601String(),
+                ],
+            ]);
+        }
 
         return back()->with('status', 'Posisi petugas berhasil diperbarui.');
     }

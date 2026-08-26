@@ -8,6 +8,8 @@
     'polyline' => [], // Array of [lat, lng] coordinates
     'officer' => null, // ['lat' => ..., 'lng' => ..., 'popup' => ..., 'accuracy' => ...]
     'fitBounds' => true,
+    'livePositionUrl' => null, // URL returning {position: {latitude, longitude, accuracy_meters, recorded_at}}
+    'livePositionIntervalMs' => 5000,
 ])
 
 @pushOnce('styles')
@@ -118,28 +120,63 @@
             }
 
             // Add Officer Live GPS Position
-            if (officerData && officerData.lat && officerData.lng) {
-                bounds.push([officerData.lat, officerData.lng]);
-                
-                // Pulsing Officer Circle Marker
-                L.circleMarker([officerData.lat, officerData.lng], {
-                    radius: 10,
-                    color: '#dc2626',
-                    fillColor: '#ef4444',
-                    fillOpacity: 0.9,
-                    weight: 3
-                }).addTo(map).bindPopup(officerData.popup || '<strong>Posisi Petugas Lapangan</strong>');
+            let officerCircleMarker = null;
+            let officerAccuracyCircle = null;
 
-                // Accuracy Circle
-                if (officerData.accuracy && officerData.accuracy > 0) {
-                    L.circle([officerData.lat, officerData.lng], {
-                        radius: officerData.accuracy,
-                        color: '#ef4444',
-                        fillColor: '#f87171',
-                        fillOpacity: 0.15,
-                        weight: 1
+            function renderOfficerPosition(pos, popupHtml) {
+                if (!pos || !pos.lat || !pos.lng) return;
+
+                if (officerCircleMarker) {
+                    officerCircleMarker.setLatLng([pos.lat, pos.lng]);
+                } else {
+                    officerCircleMarker = L.circleMarker([pos.lat, pos.lng], {
+                        radius: 10,
+                        color: '#dc2626',
+                        fillColor: '#ef4444',
+                        fillOpacity: 0.9,
+                        weight: 3
                     }).addTo(map);
                 }
+                officerCircleMarker.bindPopup(popupHtml || '<strong>Posisi Petugas Lapangan</strong>');
+
+                if (pos.accuracy && pos.accuracy > 0) {
+                    if (officerAccuracyCircle) {
+                        officerAccuracyCircle.setLatLng([pos.lat, pos.lng]);
+                        officerAccuracyCircle.setRadius(pos.accuracy);
+                    } else {
+                        officerAccuracyCircle = L.circle([pos.lat, pos.lng], {
+                            radius: pos.accuracy,
+                            color: '#ef4444',
+                            fillColor: '#f87171',
+                            fillOpacity: 0.15,
+                            weight: 1
+                        }).addTo(map);
+                    }
+                } else if (officerAccuracyCircle) {
+                    map.removeLayer(officerAccuracyCircle);
+                    officerAccuracyCircle = null;
+                }
+            }
+
+            if (officerData && officerData.lat && officerData.lng) {
+                bounds.push([officerData.lat, officerData.lng]);
+                renderOfficerPosition(officerData, officerData.popup);
+            }
+
+            // Poll for live officer position updates (Live GPS, no page reload needed)
+            const livePositionUrl = @json($livePositionUrl);
+            if (livePositionUrl) {
+                setInterval(function () {
+                    fetch(livePositionUrl, { headers: { 'Accept': 'application/json' } })
+                        .then(res => res.ok ? res.json() : null)
+                        .then(data => {
+                            const p = data?.position;
+                            if (!p) return;
+                            const label = '<strong>Posisi Petugas' + (data.officer?.name ? ' (' + data.officer.name + ')' : '') + '</strong><br>Update Terakhir: ' + new Date(p.recorded_at).toLocaleString('id-ID');
+                            renderOfficerPosition({ lat: p.latitude, lng: p.longitude, accuracy: p.accuracy_meters }, label);
+                        })
+                        .catch(() => {});
+                }, {{ $livePositionIntervalMs }});
             }
 
             // Fit bounds if needed

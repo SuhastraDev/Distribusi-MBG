@@ -268,7 +268,8 @@
                     @endphp
 
                     @if (!empty($markers))
-                        <x-map :markers="$markers" :polyline="$polyline" :officer="$officerMarker" height="380px" />
+                        <x-map :markers="$markers" :polyline="$polyline" :officer="$officerMarker" height="380px"
+                            :live-position-url="$distributionRun->status === 'in_progress' ? route('distribution-runs.positions.latest', $distributionRun) : null" />
                     @else
                         <div class="p-8 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200 text-slate-500 text-sm">
                             Koordinat GPS untuk depot dan sekolah tujuan belum melengkapi data. Silakan lengkapi di menu Lokasi & Depot.
@@ -292,7 +293,80 @@
             @if ($distributionRun->status === 'in_progress' && in_array(auth()->user()->role->name ?? '', ['admin', 'petugas'], true))
                 <div class="space-y-6">
                     <x-card title="Update Posisi Petugas (GPS)" subtitle="Kirim koordinat real-time ke sistem monitoring">
-                        <form method="POST" action="{{ route('distribution-runs.positions.store', $distributionRun) }}" 
+                        <div x-data="{
+                                tracking: false,
+                                watchId: null,
+                                sending: false,
+                                lastSentAt: null,
+                                error: null,
+                                storeUrl: '{{ route('distribution-runs.positions.store', $distributionRun) }}',
+                                toggle() {
+                                    this.tracking ? this.stop() : this.start();
+                                },
+                                start() {
+                                    if (!navigator.geolocation) {
+                                        this.error = 'Browser Anda tidak mendukung Geolocation.';
+                                        return;
+                                    }
+                                    this.tracking = true;
+                                    this.error = null;
+                                    this.watchId = navigator.geolocation.watchPosition(
+                                        pos => this.send(pos),
+                                        err => { this.error = 'Gagal melacak GPS: ' + err.message; },
+                                        { enableHighAccuracy: true, maximumAge: 8000, timeout: 15000 }
+                                    );
+                                },
+                                stop() {
+                                    if (this.watchId !== null) navigator.geolocation.clearWatch(this.watchId);
+                                    this.watchId = null;
+                                    this.tracking = false;
+                                },
+                                async send(pos) {
+                                    if (this.sending) return;
+                                    this.sending = true;
+                                    try {
+                                        const res = await fetch(this.storeUrl, {
+                                            method: 'POST',
+                                            headers: {
+                                                'Content-Type': 'application/json',
+                                                'Accept': 'application/json',
+                                                'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]').content,
+                                            },
+                                            body: JSON.stringify({
+                                                latitude: pos.coords.latitude,
+                                                longitude: pos.coords.longitude,
+                                                accuracy_meters: pos.coords.accuracy,
+                                            }),
+                                        });
+                                        if (res.ok) {
+                                            this.lastSentAt = new Date().toLocaleTimeString('id-ID');
+                                            this.error = null;
+                                        } else {
+                                            this.error = 'Gagal mengirim posisi (HTTP ' + res.status + ').';
+                                        }
+                                    } catch (e) {
+                                        this.error = 'Koneksi terputus saat mengirim posisi.';
+                                    } finally {
+                                        this.sending = false;
+                                    }
+                                }
+                            }" class="mb-4 p-3 rounded-xl border border-dashed border-indigo-200 bg-indigo-50/50 space-y-2">
+                            <button type="button" @click="toggle()"
+                                    :class="tracking ? 'bg-red-600 hover:bg-red-700' : 'bg-indigo-600 hover:bg-indigo-700'"
+                                    class="w-full py-2 px-3 rounded-xl text-white text-xs font-bold flex items-center justify-center gap-2 transition-colors cursor-pointer">
+                                <span x-show="tracking" class="relative flex h-2 w-2" style="display:none">
+                                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
+                                    <span class="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
+                                </span>
+                                <span x-text="tracking ? 'Matikan Pelacakan Otomatis' : 'Aktifkan Pelacakan Otomatis (Live)'"></span>
+                            </button>
+                            <p class="text-[11px] text-slate-500" x-show="tracking">
+                                Posisi terkirim otomatis setiap perangkat mendeteksi pergerakan. Terakhir terkirim: <span class="font-mono font-semibold" x-text="lastSentAt || '-'"></span>
+                            </p>
+                            <p class="text-[11px] text-red-600 font-semibold" x-show="error" x-text="error" style="display:none"></p>
+                        </div>
+
+                        <form method="POST" action="{{ route('distribution-runs.positions.store', $distributionRun) }}"
                               x-data="{
                                   lat: '{{ old('latitude', $distributionRun->latestOfficerPosition->latitude ?? '') }}',
                                   lng: '{{ old('longitude', $distributionRun->latestOfficerPosition->longitude ?? '') }}',

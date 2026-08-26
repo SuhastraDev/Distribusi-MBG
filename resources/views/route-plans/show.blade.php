@@ -88,7 +88,8 @@
                 ] : null;
             @endphp
 
-            <x-map id="route-map" :markers="$markers" :polyline="$polyline" :officer="$officerMarker" height="460px" />
+            <x-map id="route-map" :markers="$markers" :polyline="$polyline" :officer="$officerMarker" height="460px"
+                :live-position-url="$routePlan->run->status === 'in_progress' ? route('distribution-runs.positions.latest', $routePlan->run) : null" />
 
             <div class="mt-4 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-500 border-t border-slate-100 pt-3">
                 <div class="flex items-center gap-4">
