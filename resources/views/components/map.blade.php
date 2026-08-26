@@ -48,15 +48,28 @@
             }).addTo(map);
 
             // Mobile data can drop a tile request; retry a few times instead of leaving it grey.
+            // If the primary OSM tile keeps failing, fall back to the OSM France (HOT) mirror
+            // once — different infrastructure, no API key needed, no watermark.
             tileLayer.on('tileerror', function (err) {
                 const tile = err.tile;
+                if (!tile) return;
                 const attempts = Number(tile.dataset.retryCount || 0);
-                if (!tile || attempts >= 3) return;
-                tile.dataset.retryCount = String(attempts + 1);
-                setTimeout(function () {
-                    const base = tile.src.split('#')[0].split('?')[0];
-                    tile.src = base + '?retry=' + Date.now();
-                }, 800 * (attempts + 1));
+
+                if (attempts < 3) {
+                    tile.dataset.retryCount = String(attempts + 1);
+                    setTimeout(function () {
+                        const base = tile.src.split('#')[0].split('?')[0];
+                        tile.src = base + '?retry=' + Date.now();
+                    }, 800 * (attempts + 1));
+                    return;
+                }
+
+                if (!tile.dataset.fallbackUsed && err.coords) {
+                    tile.dataset.fallbackUsed = '1';
+                    const { x, y, z } = err.coords;
+                    const sub = 'abc'[Math.abs(x + y) % 3];
+                    tile.src = `https://${sub}.tile.openstreetmap.fr/hot/${z}/${x}/${y}.png`;
+                }
             });
 
             const markersData = @json($markers);
