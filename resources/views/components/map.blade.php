@@ -42,10 +42,22 @@
 
             const map = L.map('{{ $id }}').setView([{{ $lat }}, {{ $lng }}], {{ $zoom }});
 
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            const tileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                 maxZoom: 19,
                 attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
             }).addTo(map);
+
+            // Mobile data can drop a tile request; retry a few times instead of leaving it grey.
+            tileLayer.on('tileerror', function (err) {
+                const tile = err.tile;
+                const attempts = Number(tile.dataset.retryCount || 0);
+                if (!tile || attempts >= 3) return;
+                tile.dataset.retryCount = String(attempts + 1);
+                setTimeout(function () {
+                    const base = tile.src.split('#')[0].split('?')[0];
+                    tile.src = base + '?retry=' + Date.now();
+                }, 800 * (attempts + 1));
+            });
 
             const markersData = @json($markers);
             const polylineData = @json($polyline);
@@ -194,8 +206,16 @@
                 setTimeout(() => loaderEl.remove(), 300);
             }
 
-            // Invalidate size to prevent tile clipping
-            setTimeout(() => map.invalidateSize(), 400);
+            // Invalidate size to prevent tile clipping. Mobile browsers can report a
+            // 0-height container on first paint, so retry a few times, and re-check
+            // whenever the layout could have changed (rotation, tab/app switch).
+            [400, 1000, 2000].forEach(delay => setTimeout(() => map.invalidateSize(), delay));
+
+            window.addEventListener('resize', () => map.invalidateSize());
+            window.addEventListener('orientationchange', () => setTimeout(() => map.invalidateSize(), 300));
+            document.addEventListener('visibilitychange', () => {
+                if (document.visibilityState === 'visible') map.invalidateSize();
+            });
         }, 300);
     });
 </script>
