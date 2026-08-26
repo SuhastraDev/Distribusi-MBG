@@ -8,6 +8,7 @@ use App\Models\Location;
 use App\Models\RoutePlan;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
@@ -41,14 +42,14 @@ class GreedyRouteService
             $routePlan->steps()->delete();
 
             $orderedDestinations = $this->orderDestinations($depot, $destinations);
-            
+
             // Get actual road distances from OSRM API
             $locations = collect([$depot])->concat(collect($orderedDestinations)->map->location);
-            $coordsStr = $locations->map(fn($loc) => $loc->longitude . ',' . $loc->latitude)->join(';');
-            
+            $coordsStr = $locations->map(fn ($loc) => $loc->longitude.','.$loc->latitude)->join(';');
+
             $osrmDistances = [];
             try {
-                $response = \Illuminate\Support\Facades\Http::timeout(10)->get("https://router.project-osrm.org/route/v1/driving/{$coordsStr}?overview=false");
+                $response = Http::timeout(10)->get("https://router.project-osrm.org/route/v1/driving/{$coordsStr}?overview=false");
                 if ($response->successful() && isset($response['routes'][0]['legs'])) {
                     foreach ($response['routes'][0]['legs'] as $leg) {
                         $osrmDistances[] = $leg['distance'] / 1000.0; // convert meters to km
@@ -70,10 +71,10 @@ class GreedyRouteService
             ]);
 
             foreach ($orderedDestinations as $index => $destination) {
-                $distance = isset($osrmDistances[$index]) 
-                    ? $osrmDistances[$index] 
+                $distance = isset($osrmDistances[$index])
+                    ? $osrmDistances[$index]
                     : $this->distanceInKm($currentLocation, $destination->location);
-                    
+
                 $cumulativeDistance += $distance;
 
                 $routePlan->steps()->create([
