@@ -41,23 +41,15 @@ class GreedyRouteService
 
             $routePlan->steps()->delete();
 
-            $orderedDestinations = $this->orderDestinations($depot, $destinations);
+            // One matrix call for real road distances between the depot and every
+            // destination. The greedy loop below picks each next stop using these
+            // real distances (falls back to straight-line Haversine, consistently
+            // for both ordering and reporting, if the matrix isn't available) so
+            // the "nearest" stop it picks is actually nearest to drive to, and the
+            // reported distance/time matches the same criterion used to pick it.
+            $roadMatrix = $this->fetchRoadDistanceMatrix($depot, $destinations);
 
-            // Get actual road distances from OSRM API
-            $locations = collect([$depot])->concat(collect($orderedDestinations)->map->location);
-            $coordsStr = $locations->map(fn ($loc) => $loc->longitude.','.$loc->latitude)->join(';');
-
-            $osrmDistances = [];
-            try {
-                $response = Http::timeout(10)->get("https://router.project-osrm.org/route/v1/driving/{$coordsStr}?overview=false");
-                if ($response->successful() && isset($response['routes'][0]['legs'])) {
-                    foreach ($response['routes'][0]['legs'] as $leg) {
-                        $osrmDistances[] = $leg['distance'] / 1000.0; // convert meters to km
-                    }
-                }
-            } catch (\Exception $e) {
-                // Fallback to Haversine if API fails
-            }
+            $orderedDestinations = $this->orderDestinations($depot, $destinations, $roadMatrix);
 
             $currentLocation = $depot;
             $cumulativeDistance = 0.0;
@@ -71,8 +63,8 @@ class GreedyRouteService
             ]);
 
             foreach ($orderedDestinations as $index => $destination) {
-                $distance = isset($osrmDistances[$index])
-                    ? $osrmDistances[$index]
+                $distance = $roadMatrix !== null
+                    ? $roadMatrix[$currentLocation->id][$destination->location_id]
                     : $this->distanceInKm($currentLocation, $destination->location);
 
                 $cumulativeDistance += $distance;
@@ -99,18 +91,72 @@ class GreedyRouteService
     }
 
     /**
+     * Real driving distances (km) between the depot and every destination, keyed
+     * by [fromLocationId][toLocationId]. Returns null if OSRM couldn't be reached
+     * or found no route, so callers fall back to Haversine for both ordering and
+     * distance reporting.
+     *
      * @param  Collection<int, DistributionRunDestination>  $destinations
+     * @return array<int, array<int, float>>|null
+     */
+    private function fetchRoadDistanceMatrix(Location $depot, Collection $destinations): ?array
+    {
+        $locations = collect([$depot])->concat($destinations->map->location)->unique('id')->values();
+        $coordsStr = $locations->map(fn (Location $loc) => $loc->longitude.','.$loc->latitude)->join(';');
+
+        try {
+            $response = Http::timeout(10)->get("https://router.project-osrm.org/table/v1/driving/{$coordsStr}", [
+                'annotations' => 'distance',
+            ]);
+
+            if (! $response->successful() || ! isset($response['distances'])) {
+                return null;
+            }
+
+            $distances = $response['distances'];
+            if (count($distances) !== $locations->count()) {
+                return null;
+            }
+
+            $matrix = [];
+            foreach ($locations as $fromIndex => $fromLocation) {
+                foreach ($locations as $toIndex => $toLocation) {
+                    $meters = $distances[$fromIndex][$toIndex] ?? null;
+                    if ($meters === null) {
+                        return null;
+                    }
+                    $matrix[$fromLocation->id][$toLocation->id] = $meters / 1000.0;
+                }
+            }
+
+            return $matrix;
+        } catch (\Exception $e) {
+            return null;
+        }
+    }
+
+    /**
+     * @param  Collection<int, DistributionRunDestination>  $destinations
+     * @param  array<int, array<int, float>>|null  $roadMatrix
      * @return array<int, DistributionRunDestination>
      */
-    public function orderDestinations(Location $depot, Collection $destinations): array
+    public function orderDestinations(Location $depot, Collection $destinations, ?array $roadMatrix = null): array
     {
         $remaining = $destinations->values();
         $ordered = [];
         $currentLocation = $depot;
 
+        $distanceTo = function (Location $from, Location $to) use ($roadMatrix): float {
+            if ($roadMatrix !== null) {
+                return $roadMatrix[$from->id][$to->id];
+            }
+
+            return $this->distanceInKm($from, $to);
+        };
+
         while ($remaining->isNotEmpty()) {
             $nearest = $remaining
-                ->sortBy(fn (DistributionRunDestination $destination): float => $this->distanceInKm($currentLocation, $destination->location))
+                ->sortBy(fn (DistributionRunDestination $destination): float => $distanceTo($currentLocation, $destination->location))
                 ->first();
 
             $ordered[] = $nearest;
