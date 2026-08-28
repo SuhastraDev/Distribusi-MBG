@@ -172,6 +172,13 @@ class GreedyRouteService
      * starting from and re-using the same greedy order as its input. The depot
      * stays fixed as the start; the path is open (no return leg to the depot).
      *
+     * Compares full path totals rather than just the two boundary edges around
+     * a candidate segment. Real road distances from one-way streets are
+     * directional (A->B often isn't B->A), so reversing a segment changes the
+     * cost of every edge inside it, not only the two at its ends - a
+     * boundary-only comparison can accept a swap that actually makes the route
+     * longer once those flipped internal edges are accounted for.
+     *
      * @param  array<int, DistributionRunDestination>  $ordered
      * @param  array<int, array<int, float>>|null  $roadMatrix
      * @return array<int, DistributionRunDestination>
@@ -183,7 +190,16 @@ class GreedyRouteService
             return $ordered;
         }
 
-        $locationAt = fn (int $index): Location => $index < 0 ? $depot : $ordered[$index]->location;
+        $pathCost = function (array $path) use ($depot, $roadMatrix): float {
+            $total = 0.0;
+            $previous = $depot;
+            foreach ($path as $destination) {
+                $total += $this->distanceBetween($previous, $destination->location, $roadMatrix);
+                $previous = $destination->location;
+            }
+
+            return $total;
+        };
 
         $improved = true;
         $iterations = 0;
@@ -192,23 +208,19 @@ class GreedyRouteService
         while ($improved && $iterations < $maxIterations) {
             $improved = false;
             $iterations++;
+            $currentTotal = $pathCost($ordered);
 
             for ($i = 0; $i < $count - 1; $i++) {
                 for ($j = $i + 1; $j < $count; $j++) {
-                    $before = $locationAt($i - 1);
-                    $segmentStart = $locationAt($i);
-                    $segmentEnd = $locationAt($j);
-                    $after = $j + 1 < $count ? $locationAt($j + 1) : null;
+                    $candidate = $ordered;
+                    $segment = array_reverse(array_slice($candidate, $i, $j - $i + 1));
+                    array_splice($candidate, $i, $j - $i + 1, $segment);
 
-                    $currentCost = $this->distanceBetween($before, $segmentStart, $roadMatrix)
-                        + ($after !== null ? $this->distanceBetween($segmentEnd, $after, $roadMatrix) : 0.0);
+                    $candidateTotal = $pathCost($candidate);
 
-                    $swappedCost = $this->distanceBetween($before, $segmentEnd, $roadMatrix)
-                        + ($after !== null ? $this->distanceBetween($segmentStart, $after, $roadMatrix) : 0.0);
-
-                    if ($swappedCost < $currentCost - 1e-9) {
-                        $segment = array_reverse(array_slice($ordered, $i, $j - $i + 1));
-                        array_splice($ordered, $i, $j - $i + 1, $segment);
+                    if ($candidateTotal < $currentTotal - 1e-9) {
+                        $ordered = $candidate;
+                        $currentTotal = $candidateTotal;
                         $improved = true;
                     }
                 }
