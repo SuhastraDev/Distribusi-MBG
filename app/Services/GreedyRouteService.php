@@ -51,6 +51,13 @@ class GreedyRouteService
 
             $orderedDestinations = $this->orderDestinations($depot, $destinations, $roadMatrix);
 
+            // Nearest-neighbor greedy is short-sighted: it can lock in a stop that
+            // looks best right now but forces a long backtrack later. A 2-opt pass
+            // keeps the same greedy result as its starting point and only accepts
+            // swaps that provably shorten the total distance, untangling that kind
+            // of "muter-muter" detour without abandoning the greedy approach.
+            $orderedDestinations = $this->twoOptImprove($depot, $orderedDestinations, $roadMatrix);
+
             $currentLocation = $depot;
             $cumulativeDistance = 0.0;
 
@@ -146,17 +153,9 @@ class GreedyRouteService
         $ordered = [];
         $currentLocation = $depot;
 
-        $distanceTo = function (Location $from, Location $to) use ($roadMatrix): float {
-            if ($roadMatrix !== null) {
-                return $roadMatrix[$from->id][$to->id];
-            }
-
-            return $this->distanceInKm($from, $to);
-        };
-
         while ($remaining->isNotEmpty()) {
             $nearest = $remaining
-                ->sortBy(fn (DistributionRunDestination $destination): float => $distanceTo($currentLocation, $destination->location))
+                ->sortBy(fn (DistributionRunDestination $destination): float => $this->distanceBetween($currentLocation, $destination->location, $roadMatrix))
                 ->first();
 
             $ordered[] = $nearest;
@@ -165,6 +164,67 @@ class GreedyRouteService
         }
 
         return $ordered;
+    }
+
+    /**
+     * Local-search refinement over a greedy-built path: repeatedly reverses a
+     * segment of the route whenever doing so shortens the total distance,
+     * starting from and re-using the same greedy order as its input. The depot
+     * stays fixed as the start; the path is open (no return leg to the depot).
+     *
+     * @param  array<int, DistributionRunDestination>  $ordered
+     * @param  array<int, array<int, float>>|null  $roadMatrix
+     * @return array<int, DistributionRunDestination>
+     */
+    private function twoOptImprove(Location $depot, array $ordered, ?array $roadMatrix): array
+    {
+        $count = count($ordered);
+        if ($count < 3) {
+            return $ordered;
+        }
+
+        $locationAt = fn (int $index): Location => $index < 0 ? $depot : $ordered[$index]->location;
+
+        $improved = true;
+        $iterations = 0;
+        $maxIterations = 100;
+
+        while ($improved && $iterations < $maxIterations) {
+            $improved = false;
+            $iterations++;
+
+            for ($i = 0; $i < $count - 1; $i++) {
+                for ($j = $i + 1; $j < $count; $j++) {
+                    $before = $locationAt($i - 1);
+                    $segmentStart = $locationAt($i);
+                    $segmentEnd = $locationAt($j);
+                    $after = $j + 1 < $count ? $locationAt($j + 1) : null;
+
+                    $currentCost = $this->distanceBetween($before, $segmentStart, $roadMatrix)
+                        + ($after !== null ? $this->distanceBetween($segmentEnd, $after, $roadMatrix) : 0.0);
+
+                    $swappedCost = $this->distanceBetween($before, $segmentEnd, $roadMatrix)
+                        + ($after !== null ? $this->distanceBetween($segmentStart, $after, $roadMatrix) : 0.0);
+
+                    if ($swappedCost < $currentCost - 1e-9) {
+                        $segment = array_reverse(array_slice($ordered, $i, $j - $i + 1));
+                        array_splice($ordered, $i, $j - $i + 1, $segment);
+                        $improved = true;
+                    }
+                }
+            }
+        }
+
+        return $ordered;
+    }
+
+    private function distanceBetween(Location $from, Location $to, ?array $roadMatrix): float
+    {
+        if ($roadMatrix !== null) {
+            return $roadMatrix[$from->id][$to->id];
+        }
+
+        return $this->distanceInKm($from, $to);
     }
 
     public function distanceInKm(Location $from, Location $to): float
