@@ -163,7 +163,7 @@
                     <!-- Generate Route Greedy Button -->
                     <form method="POST" action="{{ route('distribution-runs.route-plan.generate', $distributionRun) }}" class="inline">
                         @csrf
-                        <button type="submit" 
+                        <button type="submit"
                                 onclick="return confirm('Generate rute terpendek dengan algoritma Greedy Nearest Neighbor dari titik depot?');"
                                 class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-500 transition-colors shadow-sm cursor-pointer">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-54.424a1 1 0 01-.866-.5L2.5 15l4.5-9 6 12 5-10 6 12zm0 0V4"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l6-12 5 10"></path></svg>

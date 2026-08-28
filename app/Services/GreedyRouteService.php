@@ -16,6 +16,16 @@ class GreedyRouteService
 {
     private const AVERAGE_SPEED_KM_PER_HOUR = 25;
 
+    /**
+     * router.project-osrm.org's public demo only ever serves its car profile
+     * and refuses many small gang/lorong (motor_vehicle=no), forcing long
+     * detours via major roads even where a short local street connects two
+     * points. routing.openstreetmap.de runs a separate demo with a genuinely
+     * distinct profile that isn't blocked by those car-only restrictions, so
+     * it finds the real short local connections instead.
+     */
+    private const OSRM_HOST = 'https://routing.openstreetmap.de/routed-bike';
+
     public function generate(DistributionRun $distributionRun): RoutePlan
     {
         $distributionRun->load([
@@ -112,7 +122,7 @@ class GreedyRouteService
         $coordsStr = $locations->map(fn (Location $loc) => $loc->longitude.','.$loc->latitude)->join(';');
 
         try {
-            $response = Http::timeout(10)->get("https://router.project-osrm.org/table/v1/driving/{$coordsStr}", [
+            $response = Http::timeout(10)->get(self::OSRM_HOST.'/table/v1/driving/'.$coordsStr, [
                 'annotations' => 'distance',
             ]);
 

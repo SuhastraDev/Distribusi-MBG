@@ -120,7 +120,7 @@
                 
                 // Draw actual road route using OSRM
                 const coordinatesString = polylineData.map(c => c[1] + ',' + c[0]).join(';');
-                fetch(`https://router.project-osrm.org/route/v1/driving/${coordinatesString}?geometries=geojson&overview=full`)
+                fetch(`https://routing.openstreetmap.de/routed-bike/route/v1/driving/${coordinatesString}?geometries=geojson&overview=full`)
                     .then(res => res.json())
                     .then(data => {
                         if (data && data.routes && data.routes.length > 0) {
