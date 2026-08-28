@@ -17,14 +17,28 @@ class GreedyRouteService
     private const AVERAGE_SPEED_KM_PER_HOUR = 25;
 
     /**
-     * router.project-osrm.org's public demo only ever serves its car profile
-     * and refuses many small gang/lorong (motor_vehicle=no), forcing long
-     * detours via major roads even where a short local street connects two
-     * points. routing.openstreetmap.de runs a separate demo with a genuinely
-     * distinct profile that isn't blocked by those car-only restrictions, so
-     * it finds the real short local connections instead.
+     * Two free OSRM demo hosts, each wrong in a different way on their own:
+     *
+     * - "car" (router.project-osrm.org) refuses many small gang/lorong
+     *   (motor_vehicle=no), forcing multi-km detours via major roads even
+     *   where a short local street connects two points.
+     * - "bike" (routing.openstreetmap.de) isn't blocked by those car-only
+     *   restrictions, but its cost function actively avoids busy arterial
+     *   roads - for two points that are genuinely best reached via a main
+     *   road, it has been observed picking a route 8x longer than the car
+     *   profile's (72km vs 8.6km for the same two points).
+     *
+     * Neither is right alone. Both matrices are fetched and combined by
+     * taking the shorter distance per pair, so a big road is used when it's
+     * genuinely the shortest option and a gang/lorong is used when that's
+     * shorter instead, instead of either profile's blind spot dominating.
+     *
+     * @var array<string, string>
      */
-    private const OSRM_HOST = 'https://routing.openstreetmap.de/routed-bike';
+    private const OSRM_HOSTS = [
+        'car' => 'https://router.project-osrm.org',
+        'bike' => 'https://routing.openstreetmap.de/routed-bike',
+    ];
 
     public function generate(DistributionRun $distributionRun): RoutePlan
     {
@@ -51,13 +65,14 @@ class GreedyRouteService
 
             $routePlan->steps()->delete();
 
-            // One matrix call for real road distances between the depot and every
-            // destination. The greedy loop below picks each next stop using these
-            // real distances (falls back to straight-line Haversine, consistently
-            // for both ordering and reporting, if the matrix isn't available) so
-            // the "nearest" stop it picks is actually nearest to drive to, and the
-            // reported distance/time matches the same criterion used to pick it.
-            $roadMatrix = $this->fetchRoadDistanceMatrix($depot, $destinations);
+            // One matrix call per host for real road distances between the depot
+            // and every destination. The greedy loop below picks each next stop
+            // using the shorter of the two (falls back to straight-line Haversine,
+            // consistently for both ordering and reporting, if neither matrix is
+            // available) so the "nearest" stop it picks is actually nearest to
+            // drive to, and the reported distance/time matches the same criterion
+            // used to pick it.
+            $roadMatrix = $this->fetchCombinedRoadDistanceMatrix($depot, $destinations);
 
             $orderedDestinations = $this->orderDestinations($depot, $destinations, $roadMatrix);
 
@@ -109,20 +124,55 @@ class GreedyRouteService
 
     /**
      * Real driving distances (km) between the depot and every destination, keyed
-     * by [fromLocationId][toLocationId]. Returns null if OSRM couldn't be reached
-     * or found no route, so callers fall back to Haversine for both ordering and
+     * by [fromLocationId][toLocationId], taking the shorter of the car-profile
+     * and bike-profile distance for each pair. Returns null only if both hosts
+     * are unreachable, so callers fall back to Haversine for both ordering and
      * distance reporting.
      *
      * @param  Collection<int, DistributionRunDestination>  $destinations
      * @return array<int, array<int, float>>|null
      */
-    private function fetchRoadDistanceMatrix(Location $depot, Collection $destinations): ?array
+    private function fetchCombinedRoadDistanceMatrix(Location $depot, Collection $destinations): ?array
+    {
+        $carMatrix = $this->fetchRoadDistanceMatrix($depot, $destinations, self::OSRM_HOSTS['car']);
+        $bikeMatrix = $this->fetchRoadDistanceMatrix($depot, $destinations, self::OSRM_HOSTS['bike']);
+
+        if ($carMatrix === null && $bikeMatrix === null) {
+            return null;
+        }
+
+        if ($carMatrix === null) {
+            return $bikeMatrix;
+        }
+
+        if ($bikeMatrix === null) {
+            return $carMatrix;
+        }
+
+        $combined = [];
+        foreach ($carMatrix as $fromId => $row) {
+            foreach ($row as $toId => $carDistance) {
+                $bikeDistance = $bikeMatrix[$fromId][$toId] ?? null;
+                $combined[$fromId][$toId] = $bikeDistance === null
+                    ? $carDistance
+                    : min($carDistance, $bikeDistance);
+            }
+        }
+
+        return $combined;
+    }
+
+    /**
+     * @param  Collection<int, DistributionRunDestination>  $destinations
+     * @return array<int, array<int, float>>|null
+     */
+    private function fetchRoadDistanceMatrix(Location $depot, Collection $destinations, string $osrmHost): ?array
     {
         $locations = collect([$depot])->concat($destinations->map->location)->unique('id')->values();
         $coordsStr = $locations->map(fn (Location $loc) => $loc->longitude.','.$loc->latitude)->join(';');
 
         try {
-            $response = Http::timeout(10)->get(self::OSRM_HOST.'/table/v1/driving/'.$coordsStr, [
+            $response = Http::timeout(10)->get($osrmHost.'/table/v1/driving/'.$coordsStr, [
                 'annotations' => 'distance',
             ]);
 

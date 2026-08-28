@@ -117,25 +117,50 @@
             // Add Polyline (Route)
             if (polylineData && polylineData.length > 1) {
                 polylineData.forEach(coord => bounds.push(coord));
-                
-                // Draw actual road route using OSRM
-                const coordinatesString = polylineData.map(c => c[1] + ',' + c[0]).join(';');
-                fetch(`https://routing.openstreetmap.de/routed-bike/route/v1/driving/${coordinatesString}?geometries=geojson&overview=full`)
-                    .then(res => res.json())
-                    .then(data => {
-                        if (data && data.routes && data.routes.length > 0) {
-                            // OSRM geometry is [longitude, latitude], Leaflet needs [latitude, longitude]
-                            const routeGeometry = data.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
-                            L.polyline(routeGeometry, {
-                                color: '#2563eb',
-                                weight: 5,
-                                opacity: 0.8,
-                                smoothFactor: 1
-                            }).addTo(map);
-                        } else {
-                            // Fallback to straight lines
-                            L.polyline(polylineData, { color: '#64748b', weight: 4, opacity: 0.8, dashArray: '5, 10' }).addTo(map);
-                        }
+
+                // Draw the actual road route. Neither free OSRM demo profile is
+                // right alone: the car profile refuses many small gang/lorong,
+                // while the bike profile actively avoids busy main roads (seen
+                // taking a route 8x longer than the car profile's for the same
+                // two points). So each leg is fetched from both and the shorter
+                // one is drawn, matching how the backend picks distances too.
+                const fetchLeg = (host, from, to) => {
+                    const coordStr = `${from[1]},${from[0]};${to[1]},${to[0]}`;
+                    return fetch(`${host}/route/v1/driving/${coordStr}?geometries=geojson&overview=full`)
+                        .then(res => res.ok ? res.json() : null)
+                        .then(data => (data && data.routes && data.routes.length > 0) ? data.routes[0] : null)
+                        .catch(() => null);
+                };
+
+                const legPromises = [];
+                for (let i = 0; i < polylineData.length - 1; i++) {
+                    const from = polylineData[i];
+                    const to = polylineData[i + 1];
+                    legPromises.push(
+                        Promise.all([
+                            fetchLeg('https://router.project-osrm.org', from, to),
+                            fetchLeg('https://routing.openstreetmap.de/routed-bike', from, to),
+                        ]).then(([carRoute, bikeRoute]) => {
+                            const candidates = [carRoute, bikeRoute].filter(r => r !== null);
+                            if (candidates.length === 0) return [from, to];
+                            const best = candidates.reduce((a, b) => (a.distance < b.distance ? a : b));
+                            return best.geometry.coordinates.map(c => [c[1], c[0]]);
+                        })
+                    );
+                }
+
+                Promise.all(legPromises)
+                    .then(legs => {
+                        const fullGeometry = [];
+                        legs.forEach((legCoords, idx) => {
+                            fullGeometry.push(...(idx === 0 ? legCoords : legCoords.slice(1)));
+                        });
+                        L.polyline(fullGeometry, {
+                            color: '#2563eb',
+                            weight: 5,
+                            opacity: 0.8,
+                            smoothFactor: 1
+                        }).addTo(map);
                     })
                     .catch(err => {
                         console.error('OSRM Routing Error:', err);
