@@ -19,7 +19,7 @@ class StoreLocationRequest extends FormRequest
         return [
             'code' => ['required', 'string', 'max:50', 'unique:locations,code'],
             'name' => ['required', 'string', 'max:255'],
-            'type' => ['required', 'in:depot,school,other'],
+            'type' => ['required', 'in:depot,school,puskesmas,other'],
             'address' => ['nullable', 'string', 'max:1000'],
             'latitude' => ['required', 'numeric', 'between:-90,90'],
             'longitude' => ['required', 'numeric', 'between:-180,180'],

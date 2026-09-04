@@ -93,14 +93,30 @@
                 iconAnchor: [13, 13]
             });
 
+            const puskesmasIcon = L.divIcon({
+                className: 'custom-map-marker',
+                html: `<div style="background-color: #e11d48; width: 26px; height: 26px; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 14px;">+</div>`,
+                iconSize: [26, 26],
+                iconAnchor: [13, 13]
+            });
+
+            const schoolIcon = L.divIcon({
+                className: 'custom-map-marker',
+                html: `<div style="background-color: #10b981; width: 26px; height: 26px; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 11px;">S</div>`,
+                iconSize: [26, 26],
+                iconAnchor: [13, 13]
+            });
+
             // Add Markers
             if (markersData && markersData.length > 0) {
                 markersData.forEach((item, index) => {
                     if (!item.lat || !item.lng) return;
                     bounds.push([item.lat, item.lng]);
-                    
+
                     let icon = null;
                     if (item.type === 'depot' || item.type === 'start') icon = depotIcon;
+                    else if (item.type === 'puskesmas') icon = puskesmasIcon;
+                    else if (item.type === 'school') icon = schoolIcon;
                     else if (item.type === 'destination') icon = destinationIcon(item.order || (index));
 
                     const markerOpts = icon ? { icon: icon } : {};

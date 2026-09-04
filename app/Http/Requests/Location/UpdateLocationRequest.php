@@ -29,7 +29,7 @@ class UpdateLocationRequest extends FormRequest
                 Rule::unique('locations', 'code')->ignore($location->id),
             ],
             'name' => ['required', 'string', 'max:255'],
-            'type' => ['required', 'in:depot,school,other'],
+            'type' => ['required', 'in:depot,school,puskesmas,other'],
             'address' => ['nullable', 'string', 'max:1000'],
             'latitude' => ['required', 'numeric', 'between:-90,90'],
             'longitude' => ['required', 'numeric', 'between:-180,180'],

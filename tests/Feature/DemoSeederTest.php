@@ -30,7 +30,8 @@ class DemoSeederTest extends TestCase
         $this->assertSame(2, Officer::query()->where('status', 'active')->count());
         $this->assertSame(1, Location::query()->where('type', 'depot')->count());
         $this->assertGreaterThanOrEqual(6, Location::query()->where('type', 'school')->count());
-        $this->assertSame(6, Recipient::query()->where('status', 'active')->count());
+        $this->assertGreaterThanOrEqual(2, Location::query()->where('type', 'puskesmas')->count());
+        $this->assertSame(8, Recipient::query()->where('status', 'active')->count());
 
         $this->assertDatabaseHas('distribution_schedules', ['code' => 'SCHD-DEMO-AKTIF']);
         $this->assertDatabaseHas('distribution_schedules', ['code' => 'SCHD-DEMO-SELESAI', 'status' => 'completed']);
@@ -73,8 +74,8 @@ class DemoSeederTest extends TestCase
 
         $this->assertSame(4, User::query()->count());
         $this->assertSame(2, Officer::query()->count());
-        $this->assertSame(7, Location::query()->count());
-        $this->assertSame(6, Recipient::query()->count());
+        $this->assertSame(9, Location::query()->count());
+        $this->assertSame(8, Recipient::query()->count());
         $this->assertSame(2, DistributionSchedule::query()->count());
         $this->assertSame(2, DistributionRun::query()->count());
         $this->assertSame(2, RoutePlan::query()->count());

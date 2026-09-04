@@ -69,6 +69,7 @@ class Location extends Model
         return match ($this->type) {
             'depot' => 'Depot',
             'school' => 'Sekolah',
+            'puskesmas' => 'Puskesmas',
             default => 'Lainnya',
         };
     }

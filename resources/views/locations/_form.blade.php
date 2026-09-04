@@ -65,6 +65,7 @@
             <x-select label="Tipe Lokasi" name="type" required>
                 <option value="depot" @selected(old('type', $location->type ?? 'school') === 'depot')>Depot Masakan (Dapur Pusat / Kitchen)</option>
                 <option value="school" @selected(old('type', $location->type ?? 'school') === 'school')>Sekolah Penerima (Titik Kirim)</option>
+                <option value="puskesmas" @selected(old('type', $location->type ?? 'school') === 'puskesmas')>Puskesmas Penerima (Titik Kirim)</option>
                 <option value="other" @selected(old('type', $location->type ?? 'school') === 'other')>Lainnya (Kantor / Gudang)</option>
             </x-select>
         </div>

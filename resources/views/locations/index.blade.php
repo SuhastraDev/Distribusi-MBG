@@ -44,10 +44,31 @@
                     <option value="all">Semua Tipe</option>
                     <option value="depot">Depot Masakan / Dapur</option>
                     <option value="school">Sekolah Penerima</option>
+                    <option value="puskesmas">Puskesmas Penerima</option>
                     <option value="other">Lainnya</option>
                 </select>
             </div>
         </div>
+
+        <!-- Overview Map: all active depots, schools, and puskesmas -->
+        @if ($mapLocations->isNotEmpty())
+            <x-card title="Peta Sebaran Lokasi Distribusi MBG" subtitle="Depot, sekolah, dan puskesmas penerima yang aktif dalam sistem">
+                @php
+                    $overviewMarkers = $mapLocations->map(fn ($location) => [
+                        'lat' => (float) $location->latitude,
+                        'lng' => (float) $location->longitude,
+                        'type' => $location->type,
+                        'popup' => '<strong>' . $location->name . '</strong><br>' . $location->typeLabel() . '<br>' . ($location->address ?: ''),
+                    ])->values();
+                @endphp
+                <x-map :markers="$overviewMarkers" height="420px" />
+                <div class="mt-4 flex flex-wrap items-center gap-4 text-xs text-slate-500 border-t border-slate-100 pt-3">
+                    <span class="inline-flex items-center gap-1.5"><span class="w-3.5 h-3.5 rounded-full bg-indigo-600 inline-block"></span> Depot</span>
+                    <span class="inline-flex items-center gap-1.5"><span class="w-3.5 h-3.5 rounded-full bg-emerald-500 inline-block"></span> Sekolah</span>
+                    <span class="inline-flex items-center gap-1.5"><span class="w-3.5 h-3.5 rounded-full bg-rose-600 inline-block"></span> Puskesmas</span>
+                </div>
+            </x-card>
+        @endif
 
         <!-- Locations Table -->
         <x-card padding="p-0">
@@ -76,9 +97,11 @@
 
                             <td class="px-4 py-3.5 whitespace-nowrap">
                                 <div class="flex items-center gap-3">
-                                    <div class="w-8 h-8 rounded-xl {{ $location->type === 'depot' ? 'bg-blue-100 text-blue-700' : 'bg-emerald-100 text-emerald-700' }} font-bold flex items-center justify-center shrink-0">
+                                    <div class="w-8 h-8 rounded-xl {{ match($location->type) { 'depot' => 'bg-blue-100 text-blue-700', 'puskesmas' => 'bg-rose-100 text-rose-700', default => 'bg-emerald-100 text-emerald-700' } }} font-bold flex items-center justify-center shrink-0">
                                         @if ($location->type === 'depot')
                                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
+                                        @elseif ($location->type === 'puskesmas')
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v6m3-3H9m11 0a8 8 0 11-16 0 8 8 0 0116 0z"></path></svg>
                                         @else
                                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 14l9-5-9-5-9 5 9 5z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z"></path></svg>
                                         @endif
@@ -91,7 +114,7 @@
                             </td>
 
                             <td class="px-4 py-3.5 whitespace-nowrap">
-                                <x-badge :variant="$location->type === 'depot' ? 'depot' : ($location->type === 'school' ? 'sekolah' : 'default')">
+                                <x-badge :variant="match($location->type) { 'depot' => 'depot', 'school' => 'sekolah', 'puskesmas' => 'puskesmas', default => 'default' }">
                                     {{ $location->typeLabel() }}
                                 </x-badge>
                             </td>

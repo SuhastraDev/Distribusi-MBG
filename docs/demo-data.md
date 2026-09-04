@@ -17,7 +17,8 @@ Semua akun memakai password: `password`
 
 - 1 depot: Depot SPPG Tangga Takat 2.
 - 6 lokasi sekolah dummy sekitar Palembang.
-- 6 penerima MBG dummy, masing-masing terhubung ke lokasi sekolah.
+- 2 lokasi puskesmas asli (data OpenStreetMap) sekitar Palembang: Puskesmas Boom Baru dan Puskesmas Pembantu 16 Ulu Talang Banten.
+- 8 penerima MBG dummy (6 sekolah + 2 puskesmas), masing-masing terhubung ke lokasinya.
 - 2 petugas distribusi aktif.
 - 1 jadwal dan distribusi aktif: `SCHD-DEMO-AKTIF` / `RUN-DEMO-AKTIF`.
 - 1 jadwal dan distribusi selesai: `SCHD-DEMO-SELESAI` / `RUN-DEMO-SELESAI`.

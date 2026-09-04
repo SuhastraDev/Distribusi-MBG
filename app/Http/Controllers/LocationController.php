@@ -16,7 +16,12 @@ class LocationController extends Controller
             ->latest()
             ->paginate(10);
 
-        return view('locations.index', compact('locations'));
+        $mapLocations = Location::query()
+            ->active()
+            ->orderBy('type')
+            ->get();
+
+        return view('locations.index', compact('locations', 'mapLocations'));
     }
 
     public function create(): View

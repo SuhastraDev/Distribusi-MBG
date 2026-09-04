@@ -180,6 +180,22 @@ class DatabaseSeeder extends Seeder
                 'latitude' => -2.9849300,
                 'longitude' => 104.7656300,
             ],
+            [
+                'code' => 'PKM-0001',
+                'name' => 'Puskesmas Boom Baru',
+                'type' => 'puskesmas',
+                'address' => 'Boom Baru, Palembang',
+                'latitude' => -2.9754512,
+                'longitude' => 104.7824651,
+            ],
+            [
+                'code' => 'PKM-0002',
+                'name' => 'Puskesmas Pembantu 16 Ulu Talang Banten',
+                'type' => 'puskesmas',
+                'address' => '16 Ulu, Seberang Ulu II, Palembang',
+                'latitude' => -2.9989607,
+                'longitude' => 104.7845731,
+            ],
         ];
 
         foreach ($locations as $location) {
@@ -199,6 +215,8 @@ class DatabaseSeeder extends Seeder
             ['code' => 'RCV-SCH-0004', 'location_code' => 'SCH-0004', 'name' => 'Siswa SMP Negeri 30 Palembang', 'portion_count' => 210],
             ['code' => 'RCV-SCH-0005', 'location_code' => 'SCH-0005', 'name' => 'Siswa SD Negeri 70 Palembang', 'portion_count' => 150],
             ['code' => 'RCV-SCH-0006', 'location_code' => 'SCH-0006', 'name' => 'Siswa SMP Negeri 7 Palembang', 'portion_count' => 200],
+            ['code' => 'RCV-PKM-0001', 'location_code' => 'PKM-0001', 'name' => 'Pasien Puskesmas Boom Baru', 'portion_count' => 90],
+            ['code' => 'RCV-PKM-0002', 'location_code' => 'PKM-0002', 'name' => 'Pasien Puskesmas Pembantu 16 Ulu Talang Banten', 'portion_count' => 70],
         ];
 
         foreach ($recipients as $recipient) {
