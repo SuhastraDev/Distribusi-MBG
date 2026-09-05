@@ -54,11 +54,23 @@ Route::middleware('auth')->group(function (): void {
     Route::resource('officers', OfficerController::class)
         ->middleware('role:admin');
 
+    Route::delete('/officers/{officer}/force', [OfficerController::class, 'forceDestroy'])
+        ->middleware('role:admin')
+        ->name('officers.force-delete');
+
     Route::resource('locations', LocationController::class)
         ->middleware('role:admin');
 
+    Route::delete('/locations/{location}/force', [LocationController::class, 'forceDestroy'])
+        ->middleware('role:admin')
+        ->name('locations.force-delete');
+
     Route::resource('recipients', RecipientController::class)
         ->middleware('role:admin');
+
+    Route::delete('/recipients/{recipient}/force', [RecipientController::class, 'forceDestroy'])
+        ->middleware('role:admin')
+        ->name('recipients.force-delete');
 
     Route::resource('distribution-schedules', DistributionScheduleController::class)
         ->middleware('role:admin');

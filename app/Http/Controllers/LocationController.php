@@ -4,7 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\Location\StoreLocationRequest;
 use App\Http\Requests\Location\UpdateLocationRequest;
+use App\Models\DistributionRunDestination;
 use App\Models\Location;
+use App\Models\RoutePlanStep;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 
@@ -64,5 +66,32 @@ class LocationController extends Controller
         return redirect()
             ->route('locations.index')
             ->with('status', 'Lokasi berhasil dinonaktifkan.');
+    }
+
+    /**
+     * Permanently remove a location. Only allowed when no other data
+     * (recipients, schedules, runs, route plans) references it - deleting a
+     * location that is still in use would either be blocked by the database
+     * foreign key or, for recipients, silently cascade-delete their data.
+     */
+    public function forceDestroy(Location $location): RedirectResponse
+    {
+        $blockers = array_filter([
+            $location->recipients()->exists() ? 'penerima MBG' : null,
+            $location->depotSchedules()->exists() ? 'jadwal distribusi (depot)' : null,
+            $location->scheduleDestinations()->exists() ? 'jadwal distribusi (tujuan)' : null,
+            DistributionRunDestination::query()->where('location_id', $location->id)->exists() ? 'distribusi aktual' : null,
+            RoutePlanStep::query()->where('location_id', $location->id)->exists() ? 'rute yang pernah dibuat' : null,
+        ]);
+
+        if (! empty($blockers)) {
+            return back()->with('error', 'Lokasi tidak bisa dihapus permanen karena masih dipakai oleh: '.implode(', ', $blockers).'. Gunakan "Nonaktifkan" saja.');
+        }
+
+        $location->delete();
+
+        return redirect()
+            ->route('locations.index')
+            ->with('status', 'Lokasi berhasil dihapus permanen.');
     }
 }

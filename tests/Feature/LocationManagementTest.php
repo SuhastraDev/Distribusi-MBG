@@ -2,7 +2,9 @@
 
 namespace Tests\Feature;
 
+use App\Models\DistributionSchedule;
 use App\Models\Location;
+use App\Models\Recipient;
 use App\Models\Role;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -93,6 +95,40 @@ class LocationManagementTest extends TestCase
         ]);
 
         $this->assertFalse($location->fresh()->isActive());
+    }
+
+    public function test_admin_can_permanently_delete_unused_location(): void
+    {
+        $admin = $this->createUserWithRole('admin');
+        $location = Location::factory()->create();
+
+        $this->actingAs($admin)
+            ->delete(route('locations.force-delete', $location))
+            ->assertRedirect(route('locations.index'));
+
+        $this->assertDatabaseMissing('locations', ['id' => $location->id]);
+    }
+
+    public function test_admin_cannot_permanently_delete_location_still_in_use(): void
+    {
+        $admin = $this->createUserWithRole('admin');
+        $location = Location::factory()->create();
+        $recipient = Recipient::factory()->create(['location_id' => $location->id]);
+
+        $this->actingAs($admin)
+            ->delete(route('locations.force-delete', $location))
+            ->assertRedirect();
+
+        $this->assertDatabaseHas('locations', ['id' => $location->id]);
+        $recipient->delete();
+
+        $depotSchedule = DistributionSchedule::factory()->create(['depot_location_id' => $location->id]);
+        $this->actingAs($admin)
+            ->delete(route('locations.force-delete', $location))
+            ->assertRedirect();
+
+        $this->assertDatabaseHas('locations', ['id' => $location->id]);
+        $depotSchedule->delete();
     }
 
     public function test_only_admin_can_manage_locations(): void

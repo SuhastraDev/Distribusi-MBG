@@ -9,6 +9,10 @@
         $canGenerateRoute = $isAssignedOfficer;
         $canExecuteField = $isAssignedOfficer;
     @endphp
+
+    @if (auth()->user()->hasRole('petugas'))
+        @include('distribution-runs._officer-simple', ['distributionRun' => $distributionRun])
+    @else
     <div x-data="{
         polling: false,
         lastUpdated: '{{ now()->format('H:i:s') }}',
@@ -544,4 +548,5 @@
         </x-card>
 
     </div>
+    @endif
 </x-layouts.app>

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\Recipient\StoreRecipientRequest;
 use App\Http\Requests\Recipient\UpdateRecipientRequest;
+use App\Models\DistributionRunDestination;
 use App\Models\Location;
 use App\Models\Recipient;
 use Illuminate\Contracts\View\View;
@@ -69,6 +70,29 @@ class RecipientController extends Controller
         return redirect()
             ->route('recipients.index')
             ->with('status', 'Penerima MBG berhasil dinonaktifkan.');
+    }
+
+    /**
+     * Permanently remove a recipient. Only allowed when it has never been
+     * part of a distribution schedule or run - otherwise the database
+     * foreign key (restrictOnDelete) would reject the deletion anyway.
+     */
+    public function forceDestroy(Recipient $recipient): RedirectResponse
+    {
+        $blockers = array_filter([
+            $recipient->scheduleDestinations()->exists() ? 'jadwal distribusi' : null,
+            DistributionRunDestination::query()->where('recipient_id', $recipient->id)->exists() ? 'distribusi aktual' : null,
+        ]);
+
+        if (! empty($blockers)) {
+            return back()->with('error', 'Penerima tidak bisa dihapus permanen karena masih tercatat di: '.implode(', ', $blockers).'. Gunakan "Nonaktifkan" saja.');
+        }
+
+        $recipient->delete();
+
+        return redirect()
+            ->route('recipients.index')
+            ->with('status', 'Penerima MBG berhasil dihapus permanen.');
     }
 
     /**

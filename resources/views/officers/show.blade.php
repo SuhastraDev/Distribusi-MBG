@@ -115,19 +115,31 @@
                         </div>
                     </div>
 
-                    @if ($officer->status === 'active')
-                        <x-slot name="footer">
-                            <form method="POST" action="{{ route('officers.destroy', $officer) }}" class="w-full"
-                                  onsubmit="return confirm('Apakah Anda yakin ingin menonaktifkan petugas ini beserta akun loginnya?');">
+                    <x-slot name="footer">
+                        <div class="w-full space-y-2">
+                            @if ($officer->status === 'active')
+                                <form method="POST" action="{{ route('officers.destroy', $officer) }}" class="w-full"
+                                      onsubmit="return confirm('Apakah Anda yakin ingin menonaktifkan petugas ini beserta akun loginnya?');">
+                                    @csrf
+                                    @method('DELETE')
+                                    <x-button type="submit" variant="danger" size="sm" class="w-full justify-center">
+                                        <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"></path></svg>
+                                        Nonaktifkan Petugas Ini
+                                    </x-button>
+                                </form>
+                            @endif
+
+                            <form method="POST" action="{{ route('officers.force-delete', $officer) }}" class="w-full"
+                                  onsubmit="return confirm('HAPUS PERMANEN petugas {{ addslashes($officer->name) }} beserta akun login-nya? Data yang sudah dihapus tidak bisa dikembalikan.');">
                                 @csrf
                                 @method('DELETE')
-                                <x-button type="submit" variant="danger" size="sm" class="w-full justify-center">
-                                    <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"></path></svg>
-                                    Nonaktifkan Petugas Ini
-                                </x-button>
+                                <button type="submit" class="w-full inline-flex items-center justify-center px-3 py-1.5 rounded-lg text-xs font-bold text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 transition-colors cursor-pointer">
+                                    <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                    Hapus Permanen
+                                </button>
                             </form>
-                        </x-slot>
-                    @endif
+                        </div>
+                    </x-slot>
                 </x-card>
             </div>
         </div>

@@ -4,7 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\Officer\StoreOfficerRequest;
 use App\Http\Requests\Officer\UpdateOfficerRequest;
+use App\Models\DistributionRun;
+use App\Models\DistributionSchedule;
 use App\Models\Officer;
+use App\Models\OfficerPosition;
 use App\Models\Role;
 use App\Models\User;
 use Illuminate\Contracts\View\View;
@@ -117,5 +120,34 @@ class OfficerController extends Controller
         return redirect()
             ->route('officers.index')
             ->with('status', 'Petugas berhasil dinonaktifkan.');
+    }
+
+    /**
+     * Permanently remove an officer and their login account. Only allowed
+     * when the officer has no schedule/run/position history - deleting an
+     * officer who already has field activity would orphan that history's
+     * foreign keys (the database itself would reject it).
+     */
+    public function forceDestroy(Officer $officer): RedirectResponse
+    {
+        $blockers = array_filter([
+            DistributionSchedule::query()->where('officer_id', $officer->id)->exists() ? 'jadwal distribusi' : null,
+            DistributionRun::query()->where('officer_id', $officer->id)->exists() ? 'distribusi aktual' : null,
+            OfficerPosition::query()->where('officer_id', $officer->id)->exists() ? 'riwayat posisi GPS' : null,
+        ]);
+
+        if (! empty($blockers)) {
+            return back()->with('error', 'Petugas tidak bisa dihapus permanen karena masih memiliki: '.implode(', ', $blockers).'. Gunakan "Nonaktifkan" saja.');
+        }
+
+        DB::transaction(function () use ($officer): void {
+            $user = $officer->user;
+            $officer->delete();
+            $user?->delete();
+        });
+
+        return redirect()
+            ->route('officers.index')
+            ->with('status', 'Petugas berhasil dihapus permanen.');
     }
 }

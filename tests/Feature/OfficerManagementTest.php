@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\DistributionSchedule;
 use App\Models\Officer;
 use App\Models\Role;
 use App\Models\User;
@@ -120,6 +121,35 @@ class OfficerManagementTest extends TestCase
         ]);
 
         $this->assertFalse($officer->fresh()->isActive());
+    }
+
+    public function test_admin_can_permanently_delete_unused_officer(): void
+    {
+        $admin = $this->createUserWithRole('admin');
+        $user = $this->createUserWithRole('petugas');
+        $officer = Officer::factory()->create(['user_id' => $user->id]);
+
+        $this->actingAs($admin)
+            ->delete(route('officers.force-delete', $officer))
+            ->assertRedirect(route('officers.index'));
+
+        $this->assertDatabaseMissing('officers', ['id' => $officer->id]);
+        $this->assertDatabaseMissing('users', ['id' => $user->id]);
+    }
+
+    public function test_admin_cannot_permanently_delete_officer_with_schedule_history(): void
+    {
+        $admin = $this->createUserWithRole('admin');
+        $user = $this->createUserWithRole('petugas');
+        $officer = Officer::factory()->create(['user_id' => $user->id]);
+        DistributionSchedule::factory()->create(['officer_id' => $officer->id]);
+
+        $this->actingAs($admin)
+            ->delete(route('officers.force-delete', $officer))
+            ->assertRedirect();
+
+        $this->assertDatabaseHas('officers', ['id' => $officer->id]);
+        $this->assertDatabaseHas('users', ['id' => $user->id]);
     }
 
     public function test_only_admin_can_manage_officers(): void

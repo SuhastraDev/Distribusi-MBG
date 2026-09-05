@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\DistributionScheduleDestination;
 use App\Models\Location;
 use App\Models\Recipient;
 use App\Models\Role;
@@ -99,6 +100,31 @@ class RecipientManagementTest extends TestCase
         ]);
 
         $this->assertFalse($recipient->fresh()->isActive());
+    }
+
+    public function test_admin_can_permanently_delete_unused_recipient(): void
+    {
+        $admin = $this->createUserWithRole('admin');
+        $recipient = Recipient::factory()->create();
+
+        $this->actingAs($admin)
+            ->delete(route('recipients.force-delete', $recipient))
+            ->assertRedirect(route('recipients.index'));
+
+        $this->assertDatabaseMissing('recipients', ['id' => $recipient->id]);
+    }
+
+    public function test_admin_cannot_permanently_delete_recipient_with_schedule_history(): void
+    {
+        $admin = $this->createUserWithRole('admin');
+        $recipient = Recipient::factory()->create();
+        DistributionScheduleDestination::factory()->create(['recipient_id' => $recipient->id]);
+
+        $this->actingAs($admin)
+            ->delete(route('recipients.force-delete', $recipient))
+            ->assertRedirect();
+
+        $this->assertDatabaseHas('recipients', ['id' => $recipient->id]);
     }
 
     public function test_only_admin_can_manage_recipients(): void
