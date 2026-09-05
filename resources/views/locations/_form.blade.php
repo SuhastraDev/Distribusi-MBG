@@ -4,10 +4,47 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
 @endpush
 
-<div class="space-y-6" x-data="{ 
+<div class="space-y-6" x-data="{
     loading: false,
     lat: '{{ old('latitude', $location->latitude ?? '-6.200000') }}',
     lng: '{{ old('longitude', $location->longitude ?? '106.816666') }}',
+    searchQuery: '',
+    searching: false,
+    searchError: null,
+    searchResults: [],
+    map: null,
+    marker: null,
+    async searchAddress() {
+        if (!this.searchQuery.trim()) return;
+        this.searching = true;
+        this.searchError = null;
+        this.searchResults = [];
+        try {
+            const url = 'https://nominatim.openstreetmap.org/search?format=json&limit=5&q=' + encodeURIComponent(this.searchQuery);
+            const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            this.searchResults = await res.json();
+            if (this.searchResults.length === 0) {
+                this.searchError = 'Alamat tidak ditemukan, coba kata kunci lain.';
+            }
+        } catch (e) {
+            this.searchError = 'Gagal mencari alamat. Periksa koneksi internet Anda.';
+        } finally {
+            this.searching = false;
+        }
+    },
+    pickResult(result) {
+        const newLat = parseFloat(result.lat);
+        const newLng = parseFloat(result.lon);
+        this.lat = newLat.toFixed(6);
+        this.lng = newLng.toFixed(6);
+        this.searchResults = [];
+        this.searchQuery = result.display_name;
+        if (this.marker && this.map) {
+            this.marker.setLatLng([newLat, newLng]);
+            this.map.setView([newLat, newLng], 17);
+        }
+    },
     initMap() {
         if (typeof L === 'undefined') return;
         const mapEl = document.getElementById('map-preview');
@@ -16,33 +53,33 @@
         const initialLat = parseFloat(this.lat) || -6.200000;
         const initialLng = parseFloat(this.lng) || 106.816666;
         
-        const map = L.map('map-preview').setView([initialLat, initialLng], 14);
+        this.map = L.map('map-preview').setView([initialLat, initialLng], 14);
         L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
             maxZoom: 19,
             attribution: '&copy; OpenStreetMap'
-        }).addTo(map);
-        
-        let marker = L.marker([initialLat, initialLng], { draggable: true }).addTo(map);
-        
-        marker.on('dragend', (e) => {
-            const pos = marker.getLatLng();
+        }).addTo(this.map);
+
+        this.marker = L.marker([initialLat, initialLng], { draggable: true }).addTo(this.map);
+
+        this.marker.on('dragend', (e) => {
+            const pos = this.marker.getLatLng();
             this.lat = pos.lat.toFixed(6);
             this.lng = pos.lng.toFixed(6);
         });
 
-        map.on('click', (e) => {
-            marker.setLatLng(e.latlng);
+        this.map.on('click', (e) => {
+            this.marker.setLatLng(e.latlng);
             this.lat = e.latlng.lat.toFixed(6);
             this.lng = e.latlng.lng.toFixed(6);
         });
 
         this.$watch('lat', val => {
             const num = parseFloat(val);
-            if (!isNaN(num) && marker) { marker.setLatLng([num, parseFloat(this.lng) || 0]); map.panTo([num, parseFloat(this.lng) || 0]); }
+            if (!isNaN(num) && this.marker) { this.marker.setLatLng([num, parseFloat(this.lng) || 0]); this.map.panTo([num, parseFloat(this.lng) || 0]); }
         });
         this.$watch('lng', val => {
             const num = parseFloat(val);
-            if (!isNaN(num) && marker) { marker.setLatLng([parseFloat(this.lat) || 0, num]); map.panTo([parseFloat(this.lat) || 0, num]); }
+            if (!isNaN(num) && this.marker) { this.marker.setLatLng([parseFloat(this.lat) || 0, num]); this.map.panTo([parseFloat(this.lat) || 0, num]); }
         });
     }
 }" x-init="setTimeout(() => initMap(), 300)" @submit="loading = true">
@@ -112,10 +149,37 @@
             </span>
         </div>
 
+        <!-- Address Search (like Google Maps search box) -->
+        <div class="mb-4 relative">
+            <label class="block text-xs font-bold text-slate-700 mb-1">Cari Alamat / Nama Tempat (mis. dari Google Maps)</label>
+            <div class="flex gap-2">
+                <input type="text" x-model="searchQuery" @keydown.enter.prevent="searchAddress()"
+                       placeholder="contoh: SDN 01 Palembang atau nama jalan..."
+                       class="flex-1 px-3 py-2 text-sm rounded-lg border border-slate-200 focus:ring-2 focus:ring-emerald-500">
+                <button type="button" @click="searchAddress()" :disabled="searching"
+                        class="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold shrink-0 disabled:opacity-60 cursor-pointer">
+                    <span x-show="!searching">Cari</span>
+                    <span x-show="searching" style="display:none">Mencari...</span>
+                </button>
+            </div>
+            <p class="text-[11px] text-red-600 font-semibold mt-1" x-show="searchError" x-text="searchError" style="display:none"></p>
+
+            <div x-show="searchResults.length > 0" style="display:none"
+                 class="absolute z-30 mt-1 w-full bg-white border border-slate-200 rounded-lg shadow-lg max-h-56 overflow-y-auto">
+                <template x-for="(result, idx) in searchResults" :key="idx">
+                    <button type="button" @click="pickResult(result)"
+                            class="block w-full text-left px-3 py-2 text-xs text-slate-700 hover:bg-emerald-50 border-b border-slate-100 last:border-0 cursor-pointer">
+                        <span x-text="result.display_name"></span>
+                    </button>
+                </template>
+            </div>
+            <p class="text-[11px] text-slate-400 mt-1">Pilih hasil pencarian untuk memindahkan pin ke lokasi tersebut, lalu geser pin bila perlu untuk presisi.</p>
+        </div>
+
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
             <div>
-                <x-input 
-                    label="Latitude (Garis Lintang)" 
+                <x-input
+                    label="Latitude (Garis Lintang)"
                     name="latitude" 
                     x-model="lat"
                     required 
