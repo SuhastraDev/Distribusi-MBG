@@ -46,15 +46,29 @@ class OfficerPositionMonitoringTest extends TestCase
 
     public function test_position_update_requires_in_progress_distribution_run(): void
     {
+        $officerUser = $this->createUserWithRole('petugas');
+        $officer = Officer::factory()->create(['user_id' => $officerUser->id]);
+        $run = $this->createRun($officer, ['status' => 'ready']);
+
+        $this->actingAs($officerUser)
+            ->post(route('distribution-runs.positions.store', $run), [
+                'latitude' => -3.0251500,
+                'longitude' => 104.7792500,
+            ])
+            ->assertStatus(422);
+    }
+
+    public function test_admin_cannot_update_officer_position(): void
+    {
         $admin = $this->createUserWithRole('admin');
-        $run = $this->createRun($this->createOfficer(), ['status' => 'ready']);
+        $run = $this->createRun($this->createOfficer(), ['status' => 'in_progress']);
 
         $this->actingAs($admin)
             ->post(route('distribution-runs.positions.store', $run), [
                 'latitude' => -3.0251500,
                 'longitude' => 104.7792500,
             ])
-            ->assertStatus(422);
+            ->assertForbidden();
     }
 
     public function test_officer_cannot_update_other_officer_position(): void
@@ -73,10 +87,11 @@ class OfficerPositionMonitoringTest extends TestCase
 
     public function test_position_validation_requires_valid_coordinates(): void
     {
-        $admin = $this->createUserWithRole('admin');
-        $run = $this->createRun($this->createOfficer(), ['status' => 'in_progress']);
+        $officerUser = $this->createUserWithRole('petugas');
+        $officer = Officer::factory()->create(['user_id' => $officerUser->id]);
+        $run = $this->createRun($officer, ['status' => 'in_progress']);
 
-        $this->actingAs($admin)
+        $this->actingAs($officerUser)
             ->post(route('distribution-runs.positions.store', $run), [
                 'latitude' => -91,
                 'longitude' => 181,

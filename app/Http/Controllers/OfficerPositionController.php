@@ -64,13 +64,14 @@ class OfficerPositionController extends Controller
         ]);
     }
 
+    /**
+     * Sending a GPS position only makes sense from the device of the officer
+     * actually in the field - admin has no override bypass here (admin isn't
+     * the one carrying the phone).
+     */
     private function authorizeRunOfficer(DistributionRun $distributionRun): void
     {
         $user = request()->user();
-
-        if ($user?->hasRole('admin')) {
-            return;
-        }
 
         abort_unless($user?->officer?->id === $distributionRun->officer_id, 403);
     }

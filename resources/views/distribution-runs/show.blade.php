@@ -1,4 +1,14 @@
 <x-layouts.app title="Monitoring Run: {{ $distributionRun->code }}" breadcrumb="Operasional / Distribusi Aktual / Detail">
+    @php
+        // Field execution (Start/Complete/Cancel, delivery status updates, GPS position)
+        // is exclusive to the officer actually assigned to this run - not admin, and
+        // not any other petugas who happens to open this page. Admin keeps the
+        // separate ability to generate/regenerate the route (route planning is an
+        // operational-setup action, not a field action).
+        $isAssignedOfficer = auth()->user()->hasRole('petugas') && auth()->user()->officer?->id === $distributionRun->officer_id;
+        $canGenerateRoute = auth()->user()->hasRole('admin') || $isAssignedOfficer;
+        $canExecuteField = $isAssignedOfficer;
+    @endphp
     <div x-data="{
         polling: false,
         lastUpdated: '{{ now()->format('H:i:s') }}',
@@ -146,8 +156,8 @@
             </div>
         </div>
 
-        <!-- Action Panel for Authorized Roles (Admin & Petugas) -->
-        @if (in_array(auth()->user()->role->name ?? '', ['admin', 'petugas'], true))
+        <!-- Action Panel: Generate Rute (admin or assigned officer) / field actions (assigned officer only) -->
+        @if ($canGenerateRoute || $canExecuteField)
             <div class="bg-slate-900 text-white p-5 rounded-2xl shadow-lg border border-slate-800 flex flex-col md:flex-row items-center justify-between gap-4">
                 <div class="flex items-center gap-3.5">
                     <div class="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
@@ -160,56 +170,65 @@
                 </div>
 
                 <div class="flex flex-wrap items-center gap-2.5 w-full md:w-auto justify-end">
-                    <!-- Generate Route Greedy Button -->
-                    <form method="POST" action="{{ route('distribution-runs.route-plan.generate', $distributionRun) }}" class="inline">
-                        @csrf
-                        <button type="submit"
-                                onclick="return confirm('Generate rute terpendek dengan algoritma Greedy Nearest Neighbor dari titik depot?');"
-                                class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-500 transition-colors shadow-sm cursor-pointer">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-54.424a1 1 0 01-.866-.5L2.5 15l4.5-9 6 12 5-10 6 12zm0 0V4"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l6-12 5 10"></path></svg>
-                            {{ $distributionRun->routePlan ? 'Generate Ulang Rute Greedy' : 'Generate Rute Greedy' }}
-                        </button>
-                    </form>
-
-                    <!-- Start Button (ready only) -->
-                    @if ($distributionRun->status === 'ready')
-                        <form method="POST" action="{{ route('distribution-runs.start', $distributionRun) }}" class="inline">
+                    <!-- Generate Route Greedy Button (Admin or the assigned officer) -->
+                    @if ($canGenerateRoute)
+                        <form method="POST" action="{{ route('distribution-runs.route-plan.generate', $distributionRun) }}" class="inline">
                             @csrf
-                            <button type="submit" 
-                                    onclick="return confirm('Mulai keberangkatan distribusi sekarang? Status akan berubah menjadi In Progress.');"
-                                    class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 transition-colors shadow-sm cursor-pointer animate-bounce">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                                Mulai Distribusi (Start)
+                            <button type="submit"
+                                    onclick="return confirm('Generate rute terpendek dengan algoritma Greedy Nearest Neighbor dari titik depot?');"
+                                    class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-500 transition-colors shadow-sm cursor-pointer">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-54.424a1 1 0 01-.866-.5L2.5 15l4.5-9 6 12 5-10 6 12zm0 0V4"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l6-12 5 10"></path></svg>
+                                {{ $distributionRun->routePlan ? 'Generate Ulang Rute Greedy' : 'Generate Rute Greedy' }}
                             </button>
                         </form>
                     @endif
 
-                    <!-- Complete Button (in_progress only) -->
-                    @if ($distributionRun->status === 'in_progress')
-                        <form method="POST" action="{{ route('distribution-runs.complete', $distributionRun) }}" class="inline">
-                            @csrf
-                            <button type="submit" 
-                                    onclick="return confirm('Apakah semua pengiriman sudah selesai? Selesaikan distribusi ini?');"
-                                    class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white bg-blue-600 hover:bg-blue-500 transition-colors shadow-sm cursor-pointer">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                                Selesaikan Distribusi (Complete)
-                            </button>
-                        </form>
-                    @endif
+                    <!-- Field actions: Start / Complete / Cancel are exclusive to the assigned officer -->
+                    @if ($canExecuteField)
+                        <!-- Start Button (ready only) -->
+                        @if ($distributionRun->status === 'ready')
+                            <form method="POST" action="{{ route('distribution-runs.start', $distributionRun) }}" class="inline">
+                                @csrf
+                                <button type="submit"
+                                        onclick="return confirm('Mulai keberangkatan distribusi sekarang? Status akan berubah menjadi In Progress.');"
+                                        class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 transition-colors shadow-sm cursor-pointer animate-bounce">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                    Mulai Distribusi (Start)
+                                </button>
+                            </form>
+                        @endif
 
-                    <!-- Cancel Button -->
-                    @if (! in_array($distributionRun->status, ['completed', 'cancelled'], true))
-                        <form method="POST" action="{{ route('distribution-runs.cancel', $distributionRun) }}" class="inline">
-                            @csrf
-                            <button type="submit" 
-                                    onclick="return confirm('Batalkan distribusi ini? Action ini tidak dapat dibatalkan.');"
-                                    class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-300 hover:text-red-400 hover:bg-slate-800 transition-colors cursor-pointer">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                                Batalkan Run
-                            </button>
-                        </form>
+                        <!-- Complete Button (in_progress only) -->
+                        @if ($distributionRun->status === 'in_progress')
+                            <form method="POST" action="{{ route('distribution-runs.complete', $distributionRun) }}" class="inline">
+                                @csrf
+                                <button type="submit"
+                                        onclick="return confirm('Apakah semua pengiriman sudah selesai? Selesaikan distribusi ini?');"
+                                        class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white bg-blue-600 hover:bg-blue-500 transition-colors shadow-sm cursor-pointer">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                    Selesaikan Distribusi (Complete)
+                                </button>
+                            </form>
+                        @endif
+
+                        <!-- Cancel Button -->
+                        @if (! in_array($distributionRun->status, ['completed', 'cancelled'], true))
+                            <form method="POST" action="{{ route('distribution-runs.cancel', $distributionRun) }}" class="inline">
+                                @csrf
+                                <button type="submit"
+                                        onclick="return confirm('Batalkan distribusi ini? Action ini tidak dapat dibatalkan.');"
+                                        class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-300 hover:text-red-400 hover:bg-slate-800 transition-colors cursor-pointer">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                                    Batalkan Run
+                                </button>
+                            </form>
+                        @endif
                     @endif
                 </div>
+            </div>
+        @elseif (auth()->user()->hasRole('petugas'))
+            <div class="bg-slate-50 border border-dashed border-slate-200 rounded-2xl px-4 py-3 text-xs text-slate-500">
+                Distribusi ini ditugaskan ke petugas lain (<strong>{{ $distributionRun->officer->name }}</strong>) &mdash; Anda hanya bisa memantau, tidak bisa mengubah statusnya.
             </div>
         @endif
 
@@ -217,7 +236,7 @@
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
             
             <!-- Map Preview Column (2 Cols if exists) -->
-            <div class="{{ $distributionRun->status === 'in_progress' && in_array(auth()->user()->role->name ?? '', ['admin', 'petugas'], true) ? 'lg:col-span-2' : 'lg:col-span-3' }}">
+            <div class="{{ $distributionRun->status === 'in_progress' && $canExecuteField ? 'lg:col-span-2' : 'lg:col-span-3' }}">
                 <x-card title="Peta Monitoring & Rute Greedy" subtitle="Visualisasi titik pengiriman dan posisi petugas real-time">
                     @php
                         $markers = [];
@@ -290,7 +309,7 @@
             </div>
 
             <!-- GPS Live Updater Column (For Petugas during in_progress) -->
-            @if ($distributionRun->status === 'in_progress' && in_array(auth()->user()->role->name ?? '', ['admin', 'petugas'], true))
+            @if ($distributionRun->status === 'in_progress' && $canExecuteField)
                 <div class="space-y-6">
                     <x-card title="Update Posisi Petugas (GPS)" subtitle="Kirim koordinat real-time ke sistem monitoring">
                         <div x-data="{
@@ -486,7 +505,7 @@
                         </td>
 
                         <td class="px-4 py-3.5 whitespace-nowrap">
-                            @if ($distributionRun->status === 'in_progress' && in_array(auth()->user()->role->name ?? '', ['admin', 'petugas'], true))
+                            @if ($distributionRun->status === 'in_progress' && $canExecuteField)
                                 <form method="POST" action="{{ route('distribution-runs.destinations.update', [$distributionRun, $destination]) }}" class="flex items-center gap-2">
                                     @csrf
                                     @method('PUT')

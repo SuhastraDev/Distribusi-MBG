@@ -105,7 +105,7 @@ class RoutePlanController extends Controller
     {
         $user = request()->user();
 
-        if ($user?->hasRole('admin') || $user?->hasRole('kepala_sppg')) {
+        if ($user?->hasRole('admin')) {
             return;
         }
 

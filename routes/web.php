@@ -71,28 +71,40 @@ Route::middleware('auth')->group(function (): void {
         ->middleware('role:admin')
         ->name('distribution-schedules.destinations.destroy');
 
+    // Registered before index/show: GET /distribution-runs/create is a literal
+    // path that must be matched before the show route's {distribution_run}
+    // wildcard, or Laravel treats "create" as a route-model-binding lookup and
+    // 404s. Kepala SPPG is a monitoring-only role: it can view runs but not
+    // create them.
     Route::resource('distribution-runs', DistributionRunController::class)
-        ->only(['index', 'create', 'store', 'show'])
+        ->only(['create', 'store'])
+        ->middleware('role:admin,petugas');
+
+    Route::resource('distribution-runs', DistributionRunController::class)
+        ->only(['index', 'show'])
         ->middleware('role:admin,petugas,kepala_sppg');
 
+    // Field execution (Start/Complete/Cancel, delivery status, GPS position) is
+    // exclusive to the officer physically assigned to the run - not admin, so
+    // "who generated the route" and "who actually departed" can't be confused.
     Route::post('/distribution-runs/{distribution_run}/start', [DistributionRunController::class, 'start'])
-        ->middleware('role:admin,petugas')
+        ->middleware('role:petugas')
         ->name('distribution-runs.start');
 
     Route::post('/distribution-runs/{distribution_run}/complete', [DistributionRunController::class, 'complete'])
-        ->middleware('role:admin,petugas')
+        ->middleware('role:petugas')
         ->name('distribution-runs.complete');
 
     Route::post('/distribution-runs/{distribution_run}/cancel', [DistributionRunController::class, 'cancel'])
-        ->middleware('role:admin,petugas')
+        ->middleware('role:petugas')
         ->name('distribution-runs.cancel');
 
     Route::put('/distribution-runs/{distribution_run}/destinations/{destination}', [DistributionRunController::class, 'updateDestination'])
-        ->middleware('role:admin,petugas')
+        ->middleware('role:petugas')
         ->name('distribution-runs.destinations.update');
 
     Route::post('/distribution-runs/{distribution_run}/positions', [OfficerPositionController::class, 'store'])
-        ->middleware('role:admin,petugas')
+        ->middleware('role:petugas')
         ->name('distribution-runs.positions.store');
 
     Route::get('/distribution-runs/{distribution_run}/positions/latest', [OfficerPositionController::class, 'latest'])

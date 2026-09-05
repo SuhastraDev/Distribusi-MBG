@@ -27,10 +27,16 @@ class DistributionRunController extends Controller
 
     public function create(): View
     {
+        $user = request()->user();
+
         $schedules = DistributionSchedule::query()
             ->where('status', 'scheduled')
             ->whereDoesntHave('runs')
             ->whereHas('destinations')
+            ->when(
+                ! $user?->hasRole('admin'),
+                fn ($query) => $query->where('officer_id', $user?->officer?->id)
+            )
             ->with(['officer', 'depot'])
             ->orderBy('scheduled_date')
             ->get();
@@ -187,13 +193,16 @@ class DistributionRunController extends Controller
         abort_unless($user?->officer?->id === $schedule->officer_id, 403);
     }
 
+    /**
+     * Start/Complete/Cancel and destination status updates are field actions:
+     * exclusive to the officer actually assigned to this run. Unlike route
+     * generation, admin does NOT get an override bypass here - admin isn't the
+     * one physically delivering, so admin triggering "Start"/"Complete" would
+     * misrepresent who actually departed.
+     */
     private function authorizeRunOfficer(DistributionRun $distributionRun): void
     {
         $user = request()->user();
-
-        if ($user?->hasRole('admin')) {
-            return;
-        }
 
         abort_unless($user?->officer?->id === $distributionRun->officer_id, 403);
     }

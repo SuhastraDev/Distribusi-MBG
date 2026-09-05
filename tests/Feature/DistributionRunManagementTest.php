@@ -59,6 +59,49 @@ class DistributionRunManagementTest extends TestCase
         ]);
     }
 
+    public function test_head_cannot_access_create_or_store_distribution_run(): void
+    {
+        $head = $this->createUserWithRole('kepala_sppg');
+        $schedule = $this->createScheduleWithDestinations();
+
+        $this->actingAs($head)
+            ->get(route('distribution-runs.create'))
+            ->assertForbidden();
+
+        $this->actingAs($head)
+            ->post(route('distribution-runs.store'), [
+                'distribution_schedule_id' => $schedule->id,
+            ])
+            ->assertForbidden();
+    }
+
+    public function test_officer_only_sees_own_schedules_on_create_run_page(): void
+    {
+        $officerUser = $this->createUserWithRole('petugas');
+        $officer = Officer::factory()->create(['user_id' => $officerUser->id]);
+        $ownSchedule = $this->createScheduleWithDestinations(['officer_id' => $officer->id]);
+        $otherSchedule = $this->createScheduleWithDestinations();
+
+        $this->actingAs($officerUser)
+            ->get(route('distribution-runs.create'))
+            ->assertOk()
+            ->assertSee($ownSchedule->code)
+            ->assertDontSee($otherSchedule->code);
+    }
+
+    public function test_admin_sees_all_schedules_on_create_run_page(): void
+    {
+        $admin = $this->createUserWithRole('admin');
+        $scheduleA = $this->createScheduleWithDestinations();
+        $scheduleB = $this->createScheduleWithDestinations();
+
+        $this->actingAs($admin)
+            ->get(route('distribution-runs.create'))
+            ->assertOk()
+            ->assertSee($scheduleA->code)
+            ->assertSee($scheduleB->code);
+    }
+
     public function test_schedule_can_only_have_one_distribution_run(): void
     {
         $admin = $this->createUserWithRole('admin');
@@ -104,13 +147,14 @@ class DistributionRunManagementTest extends TestCase
             ->assertForbidden();
     }
 
-    public function test_admin_can_update_destination_as_arrived_or_delivered(): void
+    public function test_assigned_officer_can_update_destination_as_arrived_or_delivered(): void
     {
-        $admin = $this->createUserWithRole('admin');
-        $run = $this->createRun(['status' => 'in_progress']);
+        $officerUser = $this->createUserWithRole('petugas');
+        $officer = Officer::factory()->create(['user_id' => $officerUser->id]);
+        $run = $this->createRun(['officer_id' => $officer->id, 'status' => 'in_progress']);
         $destination = $this->createRunDestination($run, ['planned_portion_count' => 120]);
 
-        $this->actingAs($admin)
+        $this->actingAs($officerUser)
             ->put(route('distribution-runs.destinations.update', [$run, $destination]), [
                 'status' => 'delivered',
                 'delivered_portion_count' => 110,
@@ -127,13 +171,28 @@ class DistributionRunManagementTest extends TestCase
         $this->assertNotNull($destination->fresh()->delivered_at);
     }
 
-    public function test_delivered_portion_cannot_exceed_planned_portion(): void
+    public function test_admin_cannot_update_destination_status(): void
     {
         $admin = $this->createUserWithRole('admin');
         $run = $this->createRun(['status' => 'in_progress']);
-        $destination = $this->createRunDestination($run, ['planned_portion_count' => 100]);
+        $destination = $this->createRunDestination($run, ['planned_portion_count' => 120]);
 
         $this->actingAs($admin)
+            ->put(route('distribution-runs.destinations.update', [$run, $destination]), [
+                'status' => 'delivered',
+                'delivered_portion_count' => 110,
+            ])
+            ->assertForbidden();
+    }
+
+    public function test_delivered_portion_cannot_exceed_planned_portion(): void
+    {
+        $officerUser = $this->createUserWithRole('petugas');
+        $officer = Officer::factory()->create(['user_id' => $officerUser->id]);
+        $run = $this->createRun(['officer_id' => $officer->id, 'status' => 'in_progress']);
+        $destination = $this->createRunDestination($run, ['planned_portion_count' => 100]);
+
+        $this->actingAs($officerUser)
             ->put(route('distribution-runs.destinations.update', [$run, $destination]), [
                 'status' => 'delivered',
                 'delivered_portion_count' => 101,
@@ -143,12 +202,13 @@ class DistributionRunManagementTest extends TestCase
 
     public function test_distribution_run_can_complete_when_all_destinations_are_closed(): void
     {
-        $admin = $this->createUserWithRole('admin');
-        $run = $this->createRun(['status' => 'in_progress']);
+        $officerUser = $this->createUserWithRole('petugas');
+        $officer = Officer::factory()->create(['user_id' => $officerUser->id]);
+        $run = $this->createRun(['officer_id' => $officer->id, 'status' => 'in_progress']);
         $this->createRunDestination($run, ['status' => 'delivered', 'delivered_portion_count' => 100]);
         $this->createRunDestination($run, ['status' => 'skipped']);
 
-        $this->actingAs($admin)
+        $this->actingAs($officerUser)
             ->post(route('distribution-runs.complete', $run))
             ->assertRedirect();
 
@@ -161,21 +221,34 @@ class DistributionRunManagementTest extends TestCase
 
     public function test_distribution_run_cannot_complete_with_pending_destinations(): void
     {
-        $admin = $this->createUserWithRole('admin');
-        $run = $this->createRun(['status' => 'in_progress']);
+        $officerUser = $this->createUserWithRole('petugas');
+        $officer = Officer::factory()->create(['user_id' => $officerUser->id]);
+        $run = $this->createRun(['officer_id' => $officer->id, 'status' => 'in_progress']);
         $this->createRunDestination($run, ['status' => 'pending']);
 
-        $this->actingAs($admin)
+        $this->actingAs($officerUser)
             ->post(route('distribution-runs.complete', $run))
             ->assertStatus(422);
     }
 
-    public function test_admin_can_cancel_distribution_run_before_completed(): void
+    public function test_admin_cannot_complete_distribution_run(): void
     {
         $admin = $this->createUserWithRole('admin');
-        $run = $this->createRun(['status' => 'ready']);
+        $run = $this->createRun(['status' => 'in_progress']);
+        $this->createRunDestination($run, ['status' => 'delivered', 'delivered_portion_count' => 100]);
 
         $this->actingAs($admin)
+            ->post(route('distribution-runs.complete', $run))
+            ->assertForbidden();
+    }
+
+    public function test_assigned_officer_can_cancel_distribution_run_before_completed(): void
+    {
+        $officerUser = $this->createUserWithRole('petugas');
+        $officer = Officer::factory()->create(['user_id' => $officerUser->id]);
+        $run = $this->createRun(['officer_id' => $officer->id, 'status' => 'ready']);
+
+        $this->actingAs($officerUser)
             ->post(route('distribution-runs.cancel', $run))
             ->assertRedirect();
 
@@ -183,6 +256,16 @@ class DistributionRunManagementTest extends TestCase
             'id' => $run->id,
             'status' => 'cancelled',
         ]);
+    }
+
+    public function test_admin_cannot_cancel_distribution_run(): void
+    {
+        $admin = $this->createUserWithRole('admin');
+        $run = $this->createRun(['status' => 'ready']);
+
+        $this->actingAs($admin)
+            ->post(route('distribution-runs.cancel', $run))
+            ->assertForbidden();
     }
 
     public function test_head_can_view_but_cannot_start_distribution_run(): void
