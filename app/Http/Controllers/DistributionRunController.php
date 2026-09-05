@@ -17,8 +17,14 @@ class DistributionRunController extends Controller
 {
     public function index(): View
     {
+        $user = request()->user();
+
         $distributionRuns = DistributionRun::query()
             ->with(['schedule.depot', 'officer'])
+            ->when(
+                $user?->hasRole('petugas'),
+                fn ($query) => $query->where('officer_id', $user?->officer?->id)
+            )
             ->latest()
             ->paginate(10);
 
@@ -88,6 +94,8 @@ class DistributionRunController extends Controller
 
     public function show(DistributionRun $distributionRun): View
     {
+        $this->authorizeViewRun($distributionRun);
+
         $distributionRun->load([
             'schedule.depot',
             'officer.user',
@@ -180,6 +188,21 @@ class DistributionRunController extends Controller
         } while (DistributionRun::query()->where('code', $code)->exists());
 
         return $code;
+    }
+
+    /**
+     * Petugas only sees runs assigned to them; admin and kepala_sppg (both
+     * oversight roles) can view any run.
+     */
+    private function authorizeViewRun(DistributionRun $distributionRun): void
+    {
+        $user = request()->user();
+
+        if (! $user?->hasRole('petugas')) {
+            return;
+        }
+
+        abort_unless($user->officer?->id === $distributionRun->officer_id, 403);
     }
 
     private function authorizeScheduleOfficer(DistributionSchedule $schedule): void

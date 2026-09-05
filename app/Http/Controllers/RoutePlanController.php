@@ -13,8 +13,14 @@ class RoutePlanController extends Controller
 {
     public function index(): View
     {
+        $user = request()->user();
+
         $routePlans = RoutePlan::query()
             ->with(['run.schedule', 'run.officer'])
+            ->when(
+                $user?->hasRole('petugas'),
+                fn ($query) => $query->whereHas('run', fn ($runQuery) => $runQuery->where('officer_id', $user?->officer?->id))
+            )
             ->latest()
             ->paginate(10);
 
@@ -23,6 +29,8 @@ class RoutePlanController extends Controller
 
     public function show(RoutePlan $routePlan): View
     {
+        $this->authorizeViewRoutePlan($routePlan);
+
         $routePlan->load([
             'run.schedule.depot',
             'run.officer',
@@ -36,6 +44,8 @@ class RoutePlanController extends Controller
 
     public function mapData(RoutePlan $routePlan): JsonResponse
     {
+        $this->authorizeViewRoutePlan($routePlan);
+
         $routePlan->load([
             'run.schedule.depot',
             'run.officer',
@@ -101,14 +111,30 @@ class RoutePlanController extends Controller
             ->with('status', 'Rute distribusi berhasil dibuat dengan algoritma Greedy.');
     }
 
+    /**
+     * Generating a route is part of running the delivery, same as
+     * Start/Complete/Cancel - exclusive to the officer assigned to the run.
+     * Admin manages master data, not individual delivery runs.
+     */
     private function authorizeRunOfficer(DistributionRun $distributionRun): void
     {
         $user = request()->user();
 
-        if ($user?->hasRole('admin')) {
+        abort_unless($user?->officer?->id === $distributionRun->officer_id, 403);
+    }
+
+    /**
+     * Petugas only sees route plans for their own runs; admin and kepala_sppg
+     * (oversight roles) can view any route plan.
+     */
+    private function authorizeViewRoutePlan(RoutePlan $routePlan): void
+    {
+        $user = request()->user();
+
+        if (! $user?->hasRole('petugas')) {
             return;
         }
 
-        abort_unless($user?->officer?->id === $distributionRun->officer_id, 403);
+        abort_unless($user->officer?->id === $routePlan->run->officer_id, 403);
     }
 }

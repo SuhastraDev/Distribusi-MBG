@@ -41,6 +41,8 @@ class OfficerPositionController extends Controller
 
     public function latest(DistributionRun $distributionRun): JsonResponse
     {
+        $this->authorizeViewRun($distributionRun);
+
         $distributionRun->load(['officer', 'latestOfficerPosition']);
 
         $position = $distributionRun->latestOfficerPosition;
@@ -74,6 +76,21 @@ class OfficerPositionController extends Controller
         $user = request()->user();
 
         abort_unless($user?->officer?->id === $distributionRun->officer_id, 403);
+    }
+
+    /**
+     * Petugas can only fetch position data for their own run; admin/kepala_sppg
+     * (both oversight roles) can fetch any run's position.
+     */
+    private function authorizeViewRun(DistributionRun $distributionRun): void
+    {
+        $user = request()->user();
+
+        if (! $user?->hasRole('petugas')) {
+            return;
+        }
+
+        abort_unless($user->officer?->id === $distributionRun->officer_id, 403);
     }
 
     private function ensureRunCanReceivePosition(DistributionRun $distributionRun): void

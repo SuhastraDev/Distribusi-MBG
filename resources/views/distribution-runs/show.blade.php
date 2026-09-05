@@ -1,12 +1,12 @@
 <x-layouts.app title="Monitoring Run: {{ $distributionRun->code }}" breadcrumb="Operasional / Distribusi Aktual / Detail">
     @php
-        // Field execution (Start/Complete/Cancel, delivery status updates, GPS position)
-        // is exclusive to the officer actually assigned to this run - not admin, and
-        // not any other petugas who happens to open this page. Admin keeps the
-        // separate ability to generate/regenerate the route (route planning is an
-        // operational-setup action, not a field action).
+        // Every field action - Generate Rute, Start/Complete/Cancel, delivery
+        // status updates, GPS position - is exclusive to the officer actually
+        // assigned to this run. Admin manages master data (officers, locations,
+        // schedules), not individual delivery runs; this page's action panel is
+        // for the assigned petugas alone.
         $isAssignedOfficer = auth()->user()->hasRole('petugas') && auth()->user()->officer?->id === $distributionRun->officer_id;
-        $canGenerateRoute = auth()->user()->hasRole('admin') || $isAssignedOfficer;
+        $canGenerateRoute = $isAssignedOfficer;
         $canExecuteField = $isAssignedOfficer;
     @endphp
     <div x-data="{
@@ -225,10 +225,6 @@
                         @endif
                     @endif
                 </div>
-            </div>
-        @elseif (auth()->user()->hasRole('petugas'))
-            <div class="bg-slate-50 border border-dashed border-slate-200 rounded-2xl px-4 py-3 text-xs text-slate-500">
-                Distribusi ini ditugaskan ke petugas lain (<strong>{{ $distributionRun->officer->name }}</strong>) &mdash; Anda hanya bisa memantau, tidak bisa mengubah statusnya.
             </div>
         @endif
 

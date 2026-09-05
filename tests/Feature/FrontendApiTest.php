@@ -76,6 +76,40 @@ class FrontendApiTest extends TestCase
             ->assertJsonPath('steps.1.location.name', 'Sekolah API');
     }
 
+    public function test_officer_only_sees_own_data_in_dashboard_and_list_apis(): void
+    {
+        $ownRun = $this->createRunWithRoute('completed');
+        $ownOfficerUser = $ownRun->officer->user;
+        $this->createRunWithRoute('ready');
+
+        $this->actingAs($ownOfficerUser)
+            ->get(route('api.frontend.dashboard-summary'))
+            ->assertOk()
+            ->assertJsonPath('distributions.total', 1)
+            ->assertJsonPath('latest_distributions.0.code', $ownRun->code);
+
+        $this->actingAs($ownOfficerUser)
+            ->get(route('api.frontend.distribution-runs.index'))
+            ->assertOk()
+            ->assertJsonPath('meta.total', 1)
+            ->assertJsonPath('data.0.code', $ownRun->code);
+    }
+
+    public function test_officer_cannot_view_other_officer_run_or_route_via_api(): void
+    {
+        $officerUser = $this->createUserWithRole('petugas');
+        Officer::factory()->create(['user_id' => $officerUser->id]);
+        $otherRun = $this->createRunWithRoute('completed');
+
+        $this->actingAs($officerUser)
+            ->get(route('api.frontend.distribution-runs.show', $otherRun))
+            ->assertForbidden();
+
+        $this->actingAs($officerUser)
+            ->get(route('api.frontend.route-plans.map', $otherRun->routePlan))
+            ->assertForbidden();
+    }
+
     public function test_report_summary_api_is_limited_to_admin_and_head(): void
     {
         $admin = $this->createUserWithRole('admin');

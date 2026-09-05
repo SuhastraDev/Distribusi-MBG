@@ -147,6 +147,32 @@ class DistributionRunManagementTest extends TestCase
             ->assertForbidden();
     }
 
+    public function test_officer_cannot_view_other_officer_distribution_run(): void
+    {
+        $officerUser = $this->createUserWithRole('petugas');
+        Officer::factory()->create(['user_id' => $officerUser->id]);
+        $otherOfficer = $this->createOfficer();
+        $run = $this->createRun(['officer_id' => $otherOfficer->id]);
+
+        $this->actingAs($officerUser)
+            ->get(route('distribution-runs.show', $run))
+            ->assertForbidden();
+    }
+
+    public function test_officer_only_sees_own_runs_in_index(): void
+    {
+        $officerUser = $this->createUserWithRole('petugas');
+        $officer = Officer::factory()->create(['user_id' => $officerUser->id]);
+        $ownRun = $this->createRun(['officer_id' => $officer->id]);
+        $otherRun = $this->createRun();
+
+        $this->actingAs($officerUser)
+            ->get(route('distribution-runs.index'))
+            ->assertOk()
+            ->assertSee($ownRun->code)
+            ->assertDontSee($otherRun->code);
+    }
+
     public function test_assigned_officer_can_update_destination_as_arrived_or_delivered(): void
     {
         $officerUser = $this->createUserWithRole('petugas');

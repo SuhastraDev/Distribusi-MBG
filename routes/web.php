@@ -120,7 +120,7 @@ Route::middleware('auth')->group(function (): void {
         ->name('route-plans.map-data');
 
     Route::post('/distribution-runs/{distribution_run}/route-plan', [RoutePlanController::class, 'generate'])
-        ->middleware('role:admin,petugas')
+        ->middleware('role:petugas')
         ->name('distribution-runs.route-plan.generate');
 
     Route::get('/reports/distributions', [DistributionReportController::class, 'index'])

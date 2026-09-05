@@ -35,12 +35,12 @@ class RoutePlanManagementTest extends TestCase
         $this->assertGreaterThan(0, $routePlan->total_estimated_minutes);
     }
 
-    public function test_admin_can_generate_route_plan_from_distribution_run(): void
+    public function test_assigned_officer_can_generate_route_plan_from_distribution_run(): void
     {
-        $admin = $this->createUserWithRole('admin');
-        $run = $this->createRunWithDeterministicCoordinates();
+        $officer = $this->createOfficer();
+        $run = $this->createRunWithDeterministicCoordinates($officer);
 
-        $this->actingAs($admin)
+        $this->actingAs($officer->user)
             ->post(route('distribution-runs.route-plan.generate', $run))
             ->assertRedirect();
 
@@ -60,13 +60,23 @@ class RoutePlanManagementTest extends TestCase
         $this->assertCount(3, $routePlan->steps);
     }
 
-    public function test_generate_route_plan_is_idempotent_for_same_distribution_run(): void
+    public function test_admin_cannot_generate_route_plan(): void
     {
         $admin = $this->createUserWithRole('admin');
         $run = $this->createRunWithDeterministicCoordinates();
 
-        $this->actingAs($admin)->post(route('distribution-runs.route-plan.generate', $run));
-        $this->actingAs($admin)->post(route('distribution-runs.route-plan.generate', $run));
+        $this->actingAs($admin)
+            ->post(route('distribution-runs.route-plan.generate', $run))
+            ->assertForbidden();
+    }
+
+    public function test_generate_route_plan_is_idempotent_for_same_distribution_run(): void
+    {
+        $officer = $this->createOfficer();
+        $run = $this->createRunWithDeterministicCoordinates($officer);
+
+        $this->actingAs($officer->user)->post(route('distribution-runs.route-plan.generate', $run));
+        $this->actingAs($officer->user)->post(route('distribution-runs.route-plan.generate', $run));
 
         $this->assertSame(1, RoutePlan::query()->where('distribution_run_id', $run->id)->count());
         $this->assertSame(3, RoutePlan::query()->where('distribution_run_id', $run->id)->firstOrFail()->steps()->count());
@@ -129,6 +139,34 @@ class RoutePlanManagementTest extends TestCase
             ->assertForbidden();
     }
 
+    public function test_officer_only_sees_own_route_plans_in_index(): void
+    {
+        $ownOfficer = $this->createOfficer();
+        $ownRoutePlan = app(GreedyRouteService::class)->generate($this->createRunWithDeterministicCoordinates($ownOfficer));
+        $otherRoutePlan = app(GreedyRouteService::class)->generate($this->createRunWithDeterministicCoordinates($this->createOfficer()));
+
+        $this->actingAs($ownOfficer->user)
+            ->get(route('route-plans.index'))
+            ->assertOk()
+            ->assertSee($ownRoutePlan->code)
+            ->assertDontSee($otherRoutePlan->code);
+    }
+
+    public function test_officer_cannot_view_other_officer_route_plan(): void
+    {
+        $officerUser = $this->createUserWithRole('petugas');
+        Officer::factory()->create(['user_id' => $officerUser->id]);
+        $otherRoutePlan = app(GreedyRouteService::class)->generate($this->createRunWithDeterministicCoordinates($this->createOfficer()));
+
+        $this->actingAs($officerUser)
+            ->get(route('route-plans.show', $otherRoutePlan))
+            ->assertForbidden();
+
+        $this->actingAs($officerUser)
+            ->get(route('route-plans.map-data', $otherRoutePlan))
+            ->assertForbidden();
+    }
+
     public function test_head_can_view_but_cannot_generate_route_plan(): void
     {
         $head = $this->createUserWithRole('kepala_sppg');
@@ -145,7 +183,6 @@ class RoutePlanManagementTest extends TestCase
 
     public function test_route_plan_requires_distribution_destinations(): void
     {
-        $admin = $this->createUserWithRole('admin');
         $officer = $this->createOfficer();
         $schedule = DistributionSchedule::factory()->create([
             'officer_id' => $officer->id,
@@ -157,7 +194,7 @@ class RoutePlanManagementTest extends TestCase
             'officer_id' => $officer->id,
         ]);
 
-        $this->actingAs($admin)
+        $this->actingAs($officer->user)
             ->post(route('distribution-runs.route-plan.generate', $run))
             ->assertSessionHasErrors(['distribution_run_id']);
     }

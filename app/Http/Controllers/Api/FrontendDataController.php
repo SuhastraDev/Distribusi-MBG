@@ -13,20 +13,23 @@ class FrontendDataController extends Controller
 {
     public function dashboardSummary(): JsonResponse
     {
+        $officerId = $this->ownOfficerIdIfPetugas();
+
         return response()->json([
             'distributions' => [
-                'total' => DistributionRun::query()->count(),
-                'ready' => DistributionRun::query()->where('status', 'ready')->count(),
-                'in_progress' => DistributionRun::query()->where('status', 'in_progress')->count(),
-                'completed' => DistributionRun::query()->where('status', 'completed')->count(),
-                'cancelled' => DistributionRun::query()->where('status', 'cancelled')->count(),
+                'total' => DistributionRun::query()->when($officerId, fn (Builder $q) => $q->where('officer_id', $officerId))->count(),
+                'ready' => DistributionRun::query()->when($officerId, fn (Builder $q) => $q->where('officer_id', $officerId))->where('status', 'ready')->count(),
+                'in_progress' => DistributionRun::query()->when($officerId, fn (Builder $q) => $q->where('officer_id', $officerId))->where('status', 'in_progress')->count(),
+                'completed' => DistributionRun::query()->when($officerId, fn (Builder $q) => $q->where('officer_id', $officerId))->where('status', 'completed')->count(),
+                'cancelled' => DistributionRun::query()->when($officerId, fn (Builder $q) => $q->where('officer_id', $officerId))->where('status', 'cancelled')->count(),
             ],
             'routes' => [
-                'total' => RoutePlan::query()->count(),
-                'total_distance_km' => round((float) RoutePlan::query()->sum('total_distance_km'), 3),
+                'total' => RoutePlan::query()->when($officerId, fn (Builder $q) => $q->whereHas('run', fn (Builder $rq) => $rq->where('officer_id', $officerId)))->count(),
+                'total_distance_km' => round((float) RoutePlan::query()->when($officerId, fn (Builder $q) => $q->whereHas('run', fn (Builder $rq) => $rq->where('officer_id', $officerId)))->sum('total_distance_km'), 3),
             ],
             'latest_distributions' => DistributionRun::query()
                 ->with(['schedule.depot', 'officer'])
+                ->when($officerId, fn (Builder $q) => $q->where('officer_id', $officerId))
                 ->latest()
                 ->limit(5)
                 ->get()
@@ -36,8 +39,11 @@ class FrontendDataController extends Controller
 
     public function distributionRuns(Request $request): JsonResponse
     {
+        $officerId = $this->ownOfficerIdIfPetugas();
+
         $runs = DistributionRun::query()
             ->with(['schedule.depot', 'officer', 'routePlan', 'latestOfficerPosition'])
+            ->when($officerId, fn (Builder $q) => $q->where('officer_id', $officerId))
             ->when($request->filled('status'), fn (Builder $query): Builder => $query->where('status', $request->string('status')->toString()))
             ->latest()
             ->paginate(10);
@@ -55,6 +61,8 @@ class FrontendDataController extends Controller
 
     public function distributionRunDetail(DistributionRun $distributionRun): JsonResponse
     {
+        $this->authorizeViewRun($distributionRun);
+
         $distributionRun->load([
             'schedule.depot',
             'officer',
@@ -93,6 +101,8 @@ class FrontendDataController extends Controller
 
     public function routeMap(RoutePlan $routePlan): JsonResponse
     {
+        $this->authorizeViewRun($routePlan->run);
+
         $routePlan->load([
             'run.schedule.depot',
             'run.officer',
@@ -148,6 +158,35 @@ class FrontendDataController extends Controller
             'delivered_portions' => $runs->sum(fn (DistributionRun $run): int => $run->destinations->where('status', 'delivered')->sum('delivered_portion_count')),
             'total_distance_km' => round($runs->sum(fn (DistributionRun $run): float => (float) ($run->routePlan?->total_distance_km ?? 0)), 3),
         ]);
+    }
+
+    /**
+     * The current user's Officer id, only when they're petugas - used to scope
+     * list/summary queries so a petugas's dashboard never sees other officers'
+     * distributions. Null for admin/kepala_sppg (both oversight roles that see
+     * everything).
+     */
+    private function ownOfficerIdIfPetugas(): ?int
+    {
+        $user = request()->user();
+
+        return $user?->hasRole('petugas') ? $user->officer?->id : null;
+    }
+
+    /**
+     * Petugas can only fetch details for their own run; admin/kepala_sppg can
+     * fetch any run. Prevents a petugas from reading another officer's run by
+     * guessing/iterating IDs directly against the JSON API.
+     */
+    private function authorizeViewRun(DistributionRun $distributionRun): void
+    {
+        $user = request()->user();
+
+        if (! $user?->hasRole('petugas')) {
+            return;
+        }
+
+        abort_unless($user->officer?->id === $distributionRun->officer_id, 403);
     }
 
     /**
