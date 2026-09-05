@@ -107,6 +107,202 @@
             </div>
         </x-card>
 
+        <!-- Algorithm Process: animated visualization + full log -->
+        @if (!empty($routePlan->algorithm_trace))
+            @php
+                $depot = $routePlan->run->schedule->depot;
+                $coordsByName = [];
+                foreach ($routePlan->steps as $step) {
+                    $coordsByName[$step->location->name] = [
+                        'lat' => (float) $step->location->latitude,
+                        'lng' => (float) $step->location->longitude,
+                    ];
+                }
+                $greedyTrace = collect($routePlan->algorithm_trace)->where('phase', 'greedy')->values();
+                $twoOptTrace = collect($routePlan->algorithm_trace)->where('phase', 'two_opt')->values();
+            @endphp
+
+            <x-card title="Proses Algoritma Greedy (Animasi)" subtitle="Visualisasi langkah-langkah algoritma memilih tujuan terdekat berikutnya, lalu memperbaiki urutan dengan 2-opt">
+                <div x-data="{
+                        trace: @json($routePlan->algorithm_trace),
+                        coords: @json($coordsByName),
+                        depot: @json(['name' => $depot->name, 'lat' => (float) $depot->latitude, 'lng' => (float) $depot->longitude]),
+                        currentIndex: 0,
+                        currentOrder: [],
+                        playing: false,
+                        timer: null,
+                        map: null,
+                        markersLayer: null,
+                        lineLayer: null,
+                        get totalSteps() { return this.trace.length; },
+                        get currentEntry() { return this.currentIndex > 0 ? this.trace[this.currentIndex - 1] : null; },
+                        init() {
+                            this.$nextTick(() => {
+                                if (typeof L === 'undefined') return;
+                                this.map = L.map(this.$refs.traceMap).setView([this.depot.lat, this.depot.lng], 14);
+                                L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                                    maxZoom: 19,
+                                    attribution: '&copy; OpenStreetMap'
+                                }).addTo(this.map);
+                                this.markersLayer = L.layerGroup().addTo(this.map);
+                                this.lineLayer = L.layerGroup().addTo(this.map);
+                                this.render();
+                                setTimeout(() => this.map.invalidateSize(), 300);
+                            });
+                        },
+                        applyEntry(entry) {
+                            if (entry.phase === 'greedy') {
+                                this.currentOrder.push(entry.selected.name);
+                            } else if (entry.phase === 'two_opt') {
+                                this.currentOrder = entry.order_after.slice();
+                            }
+                        },
+                        render() {
+                            this.currentOrder = [];
+                            for (let k = 0; k < this.currentIndex; k++) this.applyEntry(this.trace[k]);
+
+                            this.markersLayer.clearLayers();
+                            this.lineLayer.clearLayers();
+
+                            const depotIcon = L.divIcon({
+                                className: 'custom-map-marker',
+                                html: '<div style=\"background:#4f46e5;width:26px;height:26px;border-radius:50%;border:2px solid white;box-shadow:0 2px 4px rgba(0,0,0,.3);display:flex;align-items:center;justify-content:center;color:white;font-weight:bold;font-size:11px;\">D</div>',
+                                iconSize: [26, 26], iconAnchor: [13, 13]
+                            });
+                            L.marker([this.depot.lat, this.depot.lng], { icon: depotIcon }).addTo(this.markersLayer)
+                                .bindPopup(`<strong>${this.depot.name}</strong><br>Depot Asal`);
+
+                            const points = [[this.depot.lat, this.depot.lng]];
+                            this.currentOrder.forEach((name, idx) => {
+                                const c = this.coords[name];
+                                if (!c) return;
+                                points.push([c.lat, c.lng]);
+                                const icon = L.divIcon({
+                                    className: 'custom-map-marker',
+                                    html: `<div style=\"background:#10b981;width:24px;height:24px;border-radius:50%;border:2px solid white;box-shadow:0 2px 4px rgba(0,0,0,.3);display:flex;align-items:center;justify-content:center;color:white;font-weight:bold;font-size:11px;\">${idx + 1}</div>`,
+                                    iconSize: [24, 24], iconAnchor: [12, 12]
+                                });
+                                L.marker([c.lat, c.lng], { icon }).addTo(this.markersLayer).bindPopup(`<strong>#${idx + 1} ${name}</strong>`);
+                            });
+
+                            if (points.length > 1) {
+                                const style = { color: '#2563eb', weight: 4, opacity: 0.85 };
+                                if (this.currentEntry?.phase === 'two_opt') style.dashArray = '6,6';
+                                L.polyline(points, style).addTo(this.lineLayer);
+                            }
+
+                            if (points.length > 1) {
+                                this.map.fitBounds(points, { padding: [30, 30] });
+                            } else {
+                                this.map.setView(points[0], 14);
+                            }
+                        },
+                        next() {
+                            if (this.currentIndex < this.totalSteps) { this.currentIndex++; this.render(); }
+                            else { this.pause(); }
+                        },
+                        prev() {
+                            if (this.currentIndex > 0) { this.currentIndex--; this.render(); }
+                        },
+                        play() {
+                            if (this.playing) return;
+                            this.playing = true;
+                            this.timer = setInterval(() => this.next(), 1600);
+                        },
+                        pause() {
+                            this.playing = false;
+                            if (this.timer) clearInterval(this.timer);
+                            this.timer = null;
+                        },
+                        reset() {
+                            this.pause();
+                            this.currentIndex = 0;
+                            this.render();
+                        },
+                        describeCurrentStep() {
+                            const e = this.currentEntry;
+                            if (!e) return 'Belum dimulai. Titik awal: Depot ' + this.depot.name + '.';
+                            if (e.phase === 'greedy') {
+                                return `Langkah ${e.step} (Greedy): dari \"${e.from.name}\", kandidat terdekat yang dipilih adalah \"${e.selected.name}\" (${e.selected.distance_km} km).`;
+                            }
+                            return `Perbaikan 2-opt #${e.step}: menukar urutan segmen ke-${e.segment[0]} s/d ke-${e.segment[1]} — total jarak turun dari ${e.before_km} km menjadi ${e.after_km} km.`;
+                        }
+                    }" class="space-y-4">
+
+                    <div x-ref="traceMap" class="w-full rounded-2xl overflow-hidden border border-slate-200/80" style="height: 380px;"></div>
+
+                    <div class="bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-700 font-medium min-h-[3rem] flex items-center" x-text="describeCurrentStep()"></div>
+
+                    <div class="flex flex-wrap items-center justify-between gap-3">
+                        <div class="flex items-center gap-2">
+                            <button type="button" @click="reset()" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 cursor-pointer">&laquo; Ulang</button>
+                            <button type="button" @click="prev()" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 cursor-pointer">&lsaquo; Sebelumnya</button>
+                            <button type="button" @click="playing ? pause() : play()" class="px-4 py-1.5 rounded-lg text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-500 cursor-pointer">
+                                <span x-text="playing ? 'Jeda' : 'Putar Otomatis'"></span>
+                            </button>
+                            <button type="button" @click="next()" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 cursor-pointer">Berikutnya &rsaquo;</button>
+                        </div>
+                        <div class="text-xs font-semibold text-slate-500">
+                            Langkah <span x-text="currentIndex"></span> / <span x-text="totalSteps"></span>
+                        </div>
+                    </div>
+                </div>
+            </x-card>
+
+            <!-- Full Algorithm Log Tables -->
+            <x-card title="Log Lengkap Iterasi Nearest-Neighbor" subtitle="Kandidat yang dipertimbangkan di setiap langkah dan alasan pemilihan (jarak terpendek)">
+                <div class="space-y-3">
+                    @foreach ($greedyTrace as $entry)
+                        <div class="border border-slate-200 rounded-xl overflow-hidden">
+                            <div class="bg-slate-50 px-4 py-2.5 text-xs font-bold text-slate-700 flex items-center justify-between">
+                                <span>Langkah {{ $entry['step'] }} &mdash; dari "{{ $entry['from']['name'] }}"</span>
+                                <span class="text-emerald-700">Terpilih: {{ $entry['selected']['name'] }} ({{ number_format($entry['selected']['distance_km'], 2) }} km)</span>
+                            </div>
+                            <x-table :headers="['Kandidat Tujuan', 'Jarak (km)', 'Status']">
+                                @foreach ($entry['candidates'] as $candidate)
+                                    <tr class="{{ $candidate['name'] === $entry['selected']['name'] ? 'bg-emerald-50/60' : '' }}">
+                                        <td class="px-4 py-2 text-sm font-medium text-slate-700">{{ $candidate['name'] }}</td>
+                                        <td class="px-4 py-2 text-sm font-mono text-slate-600">{{ number_format($candidate['distance_km'], 3) }}</td>
+                                        <td class="px-4 py-2 text-xs">
+                                            @if ($candidate['name'] === $entry['selected']['name'])
+                                                <span class="inline-flex items-center px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-bold">Dipilih (terdekat)</span>
+                                            @else
+                                                <span class="text-slate-400">Tidak dipilih</span>
+                                            @endif
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            </x-table>
+                        </div>
+                    @endforeach
+                </div>
+            </x-card>
+
+            @if ($twoOptTrace->isNotEmpty())
+                <x-card title="Log Perbaikan 2-opt" subtitle="Pertukaran urutan yang diterapkan karena terbukti memperpendek total jarak">
+                    <x-table :headers="['Perbaikan #', 'Segmen Ditukar', 'Jarak Sebelum', 'Jarak Sesudah', 'Selisih']">
+                        @foreach ($twoOptTrace as $entry)
+                            <tr>
+                                <td class="px-4 py-2.5 text-sm font-bold text-slate-700">#{{ $entry['step'] }}</td>
+                                <td class="px-4 py-2.5 text-sm font-mono text-slate-600">urutan ke-{{ $entry['segment'][0] }} s/d ke-{{ $entry['segment'][1] }}</td>
+                                <td class="px-4 py-2.5 text-sm font-mono text-slate-600">{{ number_format($entry['before_km'], 3) }} km</td>
+                                <td class="px-4 py-2.5 text-sm font-mono text-emerald-700 font-bold">{{ number_format($entry['after_km'], 3) }} km</td>
+                                <td class="px-4 py-2.5 text-sm font-mono text-red-600">-{{ number_format($entry['before_km'] - $entry['after_km'], 3) }} km</td>
+                            </tr>
+                        @endforeach
+                    </x-table>
+                </x-card>
+            @else
+                <x-card title="Log Perbaikan 2-opt" subtitle="Tidak ada perbaikan yang diterapkan">
+                    <p class="text-sm text-slate-500">Urutan hasil Greedy nearest-neighbor pada rute ini sudah optimal &mdash; tidak ada pertukaran 2-opt yang mengurangi jarak.</p>
+                </x-card>
+            @endif
+        @else
+            <x-card title="Proses Algoritma Greedy" subtitle="Log proses belum tersedia">
+                <p class="text-sm text-slate-500">Rute ini dibuat sebelum fitur pencatatan proses algoritma ditambahkan. Klik <strong>"Generate Ulang Rute Greedy"</strong> di halaman distribusi untuk melihat log proses lengkap.</p>
+            </x-card>
+        @endif
+
         <!-- Steps Table -->
         <x-card title="Urutan Perjalanan & Jarak Antar Titik" subtitle="Rincian langkah pergerakan armada logistik dari depot ke setiap titik sekolah">
             <x-table :headers="['Urutan', 'Tipe Titik', 'Nama Lokasi', 'Sekolah / Penerima', 'Koordinat GPS', 'Jarak dari Sebelumnya', 'Jarak Kumulatif']">

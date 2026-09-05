@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['code', 'distribution_run_id', 'algorithm', 'total_distance_km', 'total_estimated_minutes', 'status', 'notes'])]
+#[Fillable(['code', 'distribution_run_id', 'algorithm', 'total_distance_km', 'total_estimated_minutes', 'status', 'notes', 'algorithm_trace'])]
 class RoutePlan extends Model
 {
     /** @use HasFactory<RoutePlanFactory> */
@@ -23,6 +23,7 @@ class RoutePlan extends Model
         return [
             'total_distance_km' => 'decimal:3',
             'total_estimated_minutes' => 'integer',
+            'algorithm_trace' => 'array',
         ];
     }
 

@@ -74,14 +74,20 @@ class GreedyRouteService
             // used to pick it.
             $roadMatrix = $this->fetchCombinedRoadDistanceMatrix($depot, $destinations);
 
-            $orderedDestinations = $this->orderDestinations($depot, $destinations, $roadMatrix);
+            // Every decision the algorithm makes is recorded here (which stop
+            // was considered, its distance, and why it lost to the winner; then
+            // every 2-opt swap that was actually applied and why) so the app can
+            // show the process itself, not just the final result.
+            $trace = [];
+
+            $orderedDestinations = $this->orderDestinations($depot, $destinations, $roadMatrix, $trace);
 
             // Nearest-neighbor greedy is short-sighted: it can lock in a stop that
             // looks best right now but forces a long backtrack later. A 2-opt pass
             // keeps the same greedy result as its starting point and only accepts
             // swaps that provably shorten the total distance, untangling that kind
             // of "muter-muter" detour without abandoning the greedy approach.
-            $orderedDestinations = $this->twoOptImprove($depot, $orderedDestinations, $roadMatrix);
+            $orderedDestinations = $this->twoOptImprove($depot, $orderedDestinations, $roadMatrix, $trace);
 
             $currentLocation = $depot;
             $cumulativeDistance = 0.0;
@@ -116,6 +122,7 @@ class GreedyRouteService
             $routePlan->update([
                 'total_distance_km' => round($cumulativeDistance, 3),
                 'total_estimated_minutes' => $this->estimateMinutes($cumulativeDistance),
+                'algorithm_trace' => $trace,
             ]);
 
             return $routePlan->fresh(['run.schedule.depot', 'steps.location', 'steps.runDestination.recipient']);
@@ -205,21 +212,52 @@ class GreedyRouteService
     /**
      * @param  Collection<int, DistributionRunDestination>  $destinations
      * @param  array<int, array<int, float>>|null  $roadMatrix
+     * @param  array<int, array<string, mixed>>  $trace
      * @return array<int, DistributionRunDestination>
      */
-    public function orderDestinations(Location $depot, Collection $destinations, ?array $roadMatrix = null): array
+    public function orderDestinations(Location $depot, Collection $destinations, ?array $roadMatrix = null, array &$trace = []): array
     {
         $remaining = $destinations->values();
         $ordered = [];
         $currentLocation = $depot;
+        $currentLocationName = $depot->name;
+        $stepNumber = 0;
 
         while ($remaining->isNotEmpty()) {
+            $stepNumber++;
+
+            $candidates = $remaining
+                ->map(fn (DistributionRunDestination $destination): array => [
+                    'name' => $destination->location->name,
+                    'lat' => (float) $destination->location->latitude,
+                    'lng' => (float) $destination->location->longitude,
+                    'distance_km' => round($this->distanceBetween($currentLocation, $destination->location, $roadMatrix), 3),
+                ])
+                ->sortBy('distance_km')
+                ->values()
+                ->all();
+
             $nearest = $remaining
                 ->sortBy(fn (DistributionRunDestination $destination): float => $this->distanceBetween($currentLocation, $destination->location, $roadMatrix))
                 ->first();
 
+            $selected = $candidates[0];
+
+            $trace[] = [
+                'phase' => 'greedy',
+                'step' => $stepNumber,
+                'from' => [
+                    'name' => $currentLocationName,
+                    'lat' => (float) $currentLocation->latitude,
+                    'lng' => (float) $currentLocation->longitude,
+                ],
+                'candidates' => $candidates,
+                'selected' => $selected,
+            ];
+
             $ordered[] = $nearest;
             $currentLocation = $nearest->location;
+            $currentLocationName = $nearest->location->name;
             $remaining = $remaining->reject(fn (DistributionRunDestination $destination): bool => $destination->id === $nearest->id)->values();
         }
 
@@ -241,9 +279,10 @@ class GreedyRouteService
      *
      * @param  array<int, DistributionRunDestination>  $ordered
      * @param  array<int, array<int, float>>|null  $roadMatrix
+     * @param  array<int, array<string, mixed>>  $trace
      * @return array<int, DistributionRunDestination>
      */
-    private function twoOptImprove(Location $depot, array $ordered, ?array $roadMatrix): array
+    private function twoOptImprove(Location $depot, array $ordered, ?array $roadMatrix, array &$trace = []): array
     {
         $count = count($ordered);
         if ($count < 3) {
@@ -261,6 +300,7 @@ class GreedyRouteService
             return $total;
         };
 
+        $swapNumber = 0;
         $improved = true;
         $iterations = 0;
         $maxIterations = 100;
@@ -279,6 +319,16 @@ class GreedyRouteService
                     $candidateTotal = $pathCost($candidate);
 
                     if ($candidateTotal < $currentTotal - 1e-9) {
+                        $swapNumber++;
+                        $trace[] = [
+                            'phase' => 'two_opt',
+                            'step' => $swapNumber,
+                            'segment' => [$i + 1, $j + 1],
+                            'before_km' => round($currentTotal, 3),
+                            'after_km' => round($candidateTotal, 3),
+                            'order_after' => array_map(fn (DistributionRunDestination $d): string => $d->location->name, $candidate),
+                        ];
+
                         $ordered = $candidate;
                         $currentTotal = $candidateTotal;
                         $improved = true;
