@@ -4,9 +4,54 @@
     $currentDestination = $sortedDestinations->first(fn ($d) => ! in_array($d->status, ['delivered', 'skipped'], true));
     $doneCount = $sortedDestinations->filter(fn ($d) => in_array($d->status, ['delivered', 'skipped'], true))->count();
     $allDone = $distributionRun->status === 'in_progress' && $currentDestination === null && $totalDestinations > 0;
+
+    $markers = [];
+    $polyline = [];
+    if ($distributionRun->routePlan) {
+        foreach ($distributionRun->routePlan->steps as $step) {
+            $markers[] = [
+                'lat' => (float) $step->location->latitude,
+                'lng' => (float) $step->location->longitude,
+                'title' => $step->location->name,
+                'popup' => '<strong>'.($step->step_type === 'start' ? 'Depot: ' : $step->step_order.'. ').$step->location->name.'</strong><br>'.($step->runDestination?->recipient?->name ?: '').'<br>Jarak: '.$step->distance_from_previous_km.' km',
+                'type' => $step->step_type === 'start' ? 'depot' : 'destination',
+                'order' => $step->step_order,
+            ];
+            $polyline[] = [(float) $step->location->latitude, (float) $step->location->longitude];
+        }
+    } else {
+        if ($distributionRun->schedule->depot->latitude && $distributionRun->schedule->depot->longitude) {
+            $markers[] = [
+                'lat' => (float) $distributionRun->schedule->depot->latitude,
+                'lng' => (float) $distributionRun->schedule->depot->longitude,
+                'title' => 'Depot: '.$distributionRun->schedule->depot->name,
+                'popup' => '<strong>Depot Asal: '.$distributionRun->schedule->depot->name.'</strong>',
+                'type' => 'depot',
+            ];
+        }
+        foreach ($distributionRun->destinations as $idx => $dest) {
+            if ($dest->location->latitude && $dest->location->longitude) {
+                $markers[] = [
+                    'lat' => (float) $dest->location->latitude,
+                    'lng' => (float) $dest->location->longitude,
+                    'title' => $dest->location->name,
+                    'popup' => '<strong>'.($idx + 1).'. '.$dest->location->name.'</strong><br>Penerima: '.$dest->recipient->name,
+                    'type' => 'destination',
+                    'order' => $idx + 1,
+                ];
+            }
+        }
+    }
+
+    $officerMarker = $distributionRun->latestOfficerPosition ? [
+        'lat' => (float) $distributionRun->latestOfficerPosition->latitude,
+        'lng' => (float) $distributionRun->latestOfficerPosition->longitude,
+        'accuracy' => (float) ($distributionRun->latestOfficerPosition->accuracy_meters ?? 0),
+        'popup' => '<strong>Posisi Anda</strong><br>Waktu: '.$distributionRun->latestOfficerPosition->recorded_at->format('d/m/Y H:i:s'),
+    ] : null;
 @endphp
 
-<div class="max-w-xl mx-auto space-y-5"
+<div class="max-w-2xl mx-auto space-y-5"
      x-data="{
         tracking: false,
         watchId: null,
@@ -71,6 +116,11 @@
             </div>
         @endif
     </div>
+
+    @if (! empty($markers))
+        <x-map :markers="$markers" :polyline="$polyline" :officer="$officerMarker" height="280px"
+            :live-position-url="$distributionRun->status === 'in_progress' ? route('distribution-runs.positions.latest', $distributionRun) : null" />
+    @endif
 
     {{-- STEP 1: belum ada rute --}}
     @if (! $distributionRun->routePlan)
