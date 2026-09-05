@@ -166,7 +166,7 @@
 
                             const depotIcon = L.divIcon({
                                 className: 'custom-map-marker',
-                                html: '<div style=\"background:#4f46e5;width:26px;height:26px;border-radius:50%;border:2px solid white;box-shadow:0 2px 4px rgba(0,0,0,.3);display:flex;align-items:center;justify-content:center;color:white;font-weight:bold;font-size:11px;\">D</div>',
+                                html: '<div style=\'background:#4f46e5;width:26px;height:26px;border-radius:50%;border:2px solid white;box-shadow:0 2px 4px rgba(0,0,0,.3);display:flex;align-items:center;justify-content:center;color:white;font-weight:bold;font-size:11px;\'>D</div>',
                                 iconSize: [26, 26], iconAnchor: [13, 13]
                             });
                             L.marker([this.depot.lat, this.depot.lng], { icon: depotIcon }).addTo(this.markersLayer)
@@ -179,7 +179,7 @@
                                 points.push([c.lat, c.lng]);
                                 const icon = L.divIcon({
                                     className: 'custom-map-marker',
-                                    html: `<div style=\"background:#10b981;width:24px;height:24px;border-radius:50%;border:2px solid white;box-shadow:0 2px 4px rgba(0,0,0,.3);display:flex;align-items:center;justify-content:center;color:white;font-weight:bold;font-size:11px;\">${idx + 1}</div>`,
+                                    html: `<div style='background:#10b981;width:24px;height:24px;border-radius:50%;border:2px solid white;box-shadow:0 2px 4px rgba(0,0,0,.3);display:flex;align-items:center;justify-content:center;color:white;font-weight:bold;font-size:11px;'>${idx + 1}</div>`,
                                     iconSize: [24, 24], iconAnchor: [12, 12]
                                 });
                                 L.marker([c.lat, c.lng], { icon }).addTo(this.markersLayer).bindPopup(`<strong>#${idx + 1} ${name}</strong>`);
@@ -223,7 +223,7 @@
                             const e = this.currentEntry;
                             if (!e) return 'Belum dimulai. Titik awal: Depot ' + this.depot.name + '.';
                             if (e.phase === 'greedy') {
-                                return `Langkah ${e.step} (Greedy): dari \"${e.from.name}\", kandidat terdekat yang dipilih adalah \"${e.selected.name}\" (${e.selected.distance_km} km).`;
+                                return `Langkah ${e.step} (Greedy): dari '${e.from.name}', kandidat terdekat yang dipilih adalah '${e.selected.name}' (${e.selected.distance_km} km).`;
                             }
                             return `Perbaikan 2-opt #${e.step}: menukar urutan segmen ke-${e.segment[0]} s/d ke-${e.segment[1]} — total jarak turun dari ${e.before_km} km menjadi ${e.after_km} km.`;
                         }
