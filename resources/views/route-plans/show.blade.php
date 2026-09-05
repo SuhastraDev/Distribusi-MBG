@@ -124,9 +124,9 @@
 
             <x-card title="Proses Algoritma Greedy (Animasi)" subtitle="Visualisasi langkah-langkah algoritma memilih tujuan terdekat berikutnya, lalu memperbaiki urutan dengan 2-opt">
                 <div x-data="{
-                        trace: @json($routePlan->algorithm_trace),
-                        coords: @json($coordsByName),
-                        depot: @json(['name' => $depot->name, 'lat' => (float) $depot->latitude, 'lng' => (float) $depot->longitude]),
+                        trace: @js($routePlan->algorithm_trace),
+                        coords: @js($coordsByName),
+                        depot: @js(['name' => $depot->name, 'lat' => (float) $depot->latitude, 'lng' => (float) $depot->longitude]),
                         currentIndex: 0,
                         currentOrder: [],
                         playing: false,
