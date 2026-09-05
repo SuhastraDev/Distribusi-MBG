@@ -10,9 +10,6 @@
         $canExecuteField = $isAssignedOfficer;
     @endphp
 
-    @if (auth()->user()->hasRole('petugas'))
-        @include('distribution-runs._officer-simple', ['distributionRun' => $distributionRun])
-    @else
     <div x-data="{
         polling: false,
         lastUpdated: '{{ now()->format('H:i:s') }}',
@@ -319,6 +316,9 @@
                                 lastSentAt: null,
                                 error: null,
                                 storeUrl: '{{ route('distribution-runs.positions.store', $distributionRun) }}',
+                                init() {
+                                    this.start();
+                                },
                                 toggle() {
                                     this.tracking ? this.stop() : this.start();
                                 },
@@ -548,5 +548,4 @@
         </x-card>
 
     </div>
-    @endif
 </x-layouts.app>

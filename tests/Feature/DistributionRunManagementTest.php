@@ -313,7 +313,7 @@ class DistributionRunManagementTest extends TestCase
     /**
      * @param  array<string, mixed>  $attributes
      */
-    public function test_officer_sees_simplified_generate_step_when_route_plan_missing(): void
+    public function test_officer_sees_generate_route_button_when_route_plan_missing(): void
     {
         $officer = $this->createOfficer();
         $run = $this->createRun(['officer_id' => $officer->id, 'status' => 'ready']);
@@ -321,51 +321,23 @@ class DistributionRunManagementTest extends TestCase
         $this->actingAs($officer->user)
             ->get(route('distribution-runs.show', $run))
             ->assertOk()
-            ->assertSee('Generate Rute')
-            ->assertDontSee('Mulai Perjalanan');
+            ->assertSee('Generate Rute Greedy');
     }
 
-    public function test_officer_sees_simplified_start_step_once_route_plan_exists(): void
+    public function test_officer_gps_panel_auto_starts_tracking_once_in_progress(): void
     {
         $officer = $this->createOfficer();
         $run = $this->createRun(['officer_id' => $officer->id, 'status' => 'ready']);
         $this->createRunDestination($run, ['sequence_order' => 1]);
-        app(GreedyRouteService::class)->generate($run);
-
-        $this->actingAs($officer->user)
-            ->get(route('distribution-runs.show', $run->fresh()))
-            ->assertOk()
-            ->assertSee('Mulai Perjalanan')
-            ->assertDontSee('Generate Rute');
-    }
-
-    public function test_officer_sees_simplified_current_destination_when_in_progress(): void
-    {
-        $officer = $this->createOfficer();
-        $run = $this->createRun(['officer_id' => $officer->id, 'status' => 'ready']);
-        $destination = $this->createRunDestination($run, ['sequence_order' => 1, 'status' => 'pending']);
         app(GreedyRouteService::class)->generate($run);
         $run->update(['status' => 'in_progress', 'started_at' => now()]);
 
         $this->actingAs($officer->user)
             ->get(route('distribution-runs.show', $run->fresh()))
             ->assertOk()
-            ->assertSee('Lanjutkan (Sudah Sampai & Terkirim)', false)
-            ->assertSee($destination->location->name);
-    }
-
-    public function test_officer_sees_simplified_completed_summary(): void
-    {
-        $officer = $this->createOfficer();
-        $run = $this->createRun(['officer_id' => $officer->id, 'status' => 'ready']);
-        $this->createRunDestination($run, ['sequence_order' => 1, 'status' => 'delivered', 'delivered_portion_count' => 100]);
-        app(GreedyRouteService::class)->generate($run);
-        $run->update(['status' => 'completed', 'started_at' => now(), 'completed_at' => now()]);
-
-        $this->actingAs($officer->user)
-            ->get(route('distribution-runs.show', $run->fresh()))
-            ->assertOk()
-            ->assertSee('Distribusi Selesai');
+            ->assertSee('Update Posisi Petugas (GPS)')
+            ->assertSee('init() {', false)
+            ->assertSee('this.start();', false);
     }
 
     private function createRun(array $attributes = []): DistributionRun
